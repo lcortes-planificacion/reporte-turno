@@ -15,6 +15,7 @@ const defaultActividad = () => ({
   // Encabezado propio
   fecha: new Date().toISOString().split("T")[0],
   linea: "Ensamble",
+  nroLinea: "",
   turno: "B",
   ran: "",
   unidad: "",
@@ -102,13 +103,13 @@ export default function ReporteTurno() {
         </div>` : "";
 
       return `
-        <div style="border:1px solid #E2E8F0;border-radius:12px;margin-bottom:24px;overflow:hidden;page-break-inside:avoid;">
+        <div style="border:1px solid #E2E8F0;border-radius:12px;overflow:hidden;page-break-after:always;">
           
           <!-- Encabezado de actividad -->
           <div style="background:#1E293B;padding:16px 20px;display:flex;align-items:center;gap:14px;">
             <div style="font-size:24px;">⚙️</div>
             <div>
-              <div style="color:#F1F5F9;font-weight:800;font-size:16px;">Reporte de Turno ${a.turno} — ${a.linea} — Actividad ${i + 1}</div>
+              <div style="color:#F1F5F9;font-weight:800;font-size:16px;">Reporte de Turno ${a.turno} — ${a.linea}${a.nroLinea ? " N°" + a.nroLinea : ""} — Actividad ${i + 1}</div>
               <div style="color:#94A3B8;font-size:12px;text-transform:capitalize;margin-top:2px;">${fecha}</div>
             </div>
           </div>
@@ -166,15 +167,16 @@ export default function ReporteTurno() {
 <title>Reporte de Turno</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: 'Segoe UI', system-ui, sans-serif; background: white; color: #1E293B; padding: 28px; max-width: 820px; margin: 0 auto; }
-  @media print { body { padding: 12px; } }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; background: white; color: #1E293B; padding: 0; max-width: 820px; margin: 0 auto; }
+  @page { margin: 12mm; size: A4; }
+  @media print { 
+    body { padding: 0; }
+    * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
 </style>
 </head>
 <body>
   ${actividadesHTML}
-  <div style="text-align:center;color:#94A3B8;font-size:11px;margin-top:16px;padding-top:12px;border-top:1px solid #E2E8F0;">
-    Reporte generado el ${new Date().toLocaleString("es-CL", { dateStyle: "medium", timeStyle: "short" })}
-  </div>
   <script>window.onload = () => window.print();<\/script>
 </body>
 </html>`;
@@ -317,7 +319,7 @@ export default function ReporteTurno() {
             {/* ENCABEZADO PROPIO */}
             <div style={S.sectionLabel}>ENCABEZADO</div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 12 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 0.6fr", gap: 12, marginBottom: 12 }}>
               <div style={S.fieldGroup}>
                 <label style={S.label}>Fecha</label>
                 <input type="date" style={S.input} value={a.fecha}
@@ -344,6 +346,16 @@ export default function ReporteTurno() {
                     </button>
                   ))}
                 </div>
+              </div>
+              <div style={S.fieldGroup}>
+                <label style={S.label}>N° Línea</label>
+                <input
+                  type="number"
+                  style={S.input}
+                  placeholder="Ej: 3"
+                  value={a.nroLinea}
+                  onChange={e => updateActividad(a.id, "nroLinea", e.target.value)}
+                />
               </div>
               <div style={S.fieldGroup}>
                 <label style={S.label}>Turno</label>
