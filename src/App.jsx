@@ -8,10 +8,13 @@ const ESTADOS = [
   { label: "Pendiente", color: "#6B7280", bg: "#F3F4F6" },
 ];
 
+const LINEAS = ["Ensamble", "Desarme"];
+
 const defaultActividad = () => ({
   id: Date.now() + Math.random(),
   // Encabezado propio
   fecha: new Date().toISOString().split("T")[0],
+  linea: "Ensamble",
   turno: "B",
   ran: "",
   unidad: "",
@@ -105,7 +108,7 @@ export default function ReporteTurno() {
           <div style="background:#1E293B;padding:16px 20px;display:flex;align-items:center;gap:14px;">
             <div style="font-size:24px;">⚙️</div>
             <div>
-              <div style="color:#F1F5F9;font-weight:800;font-size:16px;">Reporte de Turno ${a.turno} — Actividad ${i + 1}</div>
+              <div style="color:#F1F5F9;font-weight:800;font-size:16px;">Reporte de Turno ${a.turno} — ${a.linea} — Actividad ${i + 1}</div>
               <div style="color:#94A3B8;font-size:12px;text-transform:capitalize;margin-top:2px;">${fecha}</div>
             </div>
           </div>
@@ -214,7 +217,7 @@ export default function ReporteTurno() {
                 <div style={S.previewCardTopBar}>
                   <div style={{ fontSize: 20 }}>⚙️</div>
                   <div>
-                    <div style={S.previewCardBarTitle}>Turno {a.turno} — Actividad {i + 1}</div>
+                    <div style={S.previewCardBarTitle}>Turno {a.turno} — {a.linea} — Actividad {i + 1}</div>
                     <div style={S.previewCardBarSub}>{fecha}</div>
                   </div>
                 </div>
@@ -314,11 +317,33 @@ export default function ReporteTurno() {
             {/* ENCABEZADO PROPIO */}
             <div style={S.sectionLabel}>ENCABEZADO</div>
 
-            <div style={S.row2}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 12 }}>
               <div style={S.fieldGroup}>
                 <label style={S.label}>Fecha</label>
                 <input type="date" style={S.input} value={a.fecha}
                   onChange={e => updateActividad(a.id, "fecha", e.target.value)} />
+              </div>
+              <div style={S.fieldGroup}>
+                <label style={S.label}>Línea</label>
+                <div style={{ display: "flex", gap: 8 }}>
+                  {LINEAS.map(l => (
+                    <button key={l}
+                      style={{
+                        ...S.turnoBtn,
+                        flex: 1,
+                        fontSize: 12,
+                        padding: "8px 6px",
+                        ...(a.linea === l ? {
+                          ...S.turnoBtnActive,
+                          background: l === "Ensamble" ? "#0EA5E9" : "#8B5CF6",
+                          borderColor: l === "Ensamble" ? "#0EA5E9" : "#8B5CF6",
+                        } : {})
+                      }}
+                      onClick={() => updateActividad(a.id, "linea", l)}>
+                      {l}
+                    </button>
+                  ))}
+                </div>
               </div>
               <div style={S.fieldGroup}>
                 <label style={S.label}>Turno</label>
