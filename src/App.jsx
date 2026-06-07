@@ -517,12 +517,12 @@ export default function ReporteTurno() {
                 </div>
                 <div style={S.fieldGroup}>
                   <label style={S.label}>Línea</label>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                  <div style={{ display: "flex", gap: 5 }}>
                     {LINEAS.map(l => (
                       <button key={l}
                         style={{
-                          padding: "7px 4px", border: "1.5px solid #E2E8F0", borderRadius: 8,
-                          fontSize: 12, fontWeight: 700, cursor: "pointer",
+                          flex: 1, padding: "8px 2px", border: "1.5px solid #E2E8F0", borderRadius: 8,
+                          fontSize: 11, fontWeight: 700, cursor: "pointer",
                           background: a.linea === l ? (l === "Ensamble" ? "#0EA5E9" : "#8B5CF6") : "#F8FAFC",
                           color: a.linea === l ? "#fff" : "#64748B",
                           borderColor: a.linea === l ? (l === "Ensamble" ? "#0EA5E9" : "#8B5CF6") : "#E2E8F0",
@@ -535,18 +535,18 @@ export default function ReporteTurno() {
                 </div>
                 <div style={S.fieldGroup}>
                   <label style={S.label}>Turno</label>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                  <div style={{ display: "flex", gap: 5 }}>
                     {TURNOS.map(t => (
                       <button key={t}
                         style={{
-                          padding: "7px", border: "1.5px solid #E2E8F0", borderRadius: 8,
-                          fontSize: 15, fontWeight: 700, cursor: "pointer",
+                          flex: 1, padding: "8px 2px", border: "1.5px solid #E2E8F0", borderRadius: 8,
+                          fontSize: 13, fontWeight: 700, cursor: "pointer",
                           background: a.turno === t ? "#1E293B" : "#F8FAFC",
                           color: a.turno === t ? "#fff" : "#64748B",
                           borderColor: a.turno === t ? "#1E293B" : "#E2E8F0",
                         }}
                         onClick={() => updateActividad(a.id, "turno", t)}>
-                        Turno {t}
+                        {t}
                       </button>
                     ))}
                   </div>
