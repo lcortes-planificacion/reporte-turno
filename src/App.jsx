@@ -321,8 +321,9 @@ export default function ReporteTurno() {
 
       const esUltima = i === actividades.length - 1;
 
+      const breakStyle = i === 0 ? "break-before:avoid;page-break-before:avoid;" : "break-before:page;page-break-before:always;";
       return `
-        <div class="actividad-wrap" style="border:1px solid #E2E8F0;border-radius:10px;overflow:hidden;">
+        <div class="actividad-wrap" style="border:1px solid #E2E8F0;border-radius:10px;overflow:hidden;${breakStyle}">
           <div style="background:#1E293B;padding:10px 14px;display:flex;align-items:center;gap:10px;">
             <div style="font-size:16px;">⚙️</div>
             <div>
@@ -381,14 +382,7 @@ export default function ReporteTurno() {
     break-after: page;
     page-break-after: always;
   }
-  .actividad-wrap {
-    break-before: page;
-    page-break-before: always;
-  }
-  .actividad-wrap:first-of-type {
-    break-before: avoid;
-    page-break-before: avoid;
-  }
+
 </style>
 </head>
 <body>
