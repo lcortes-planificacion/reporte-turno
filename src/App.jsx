@@ -321,9 +321,9 @@ export default function ReporteTurno() {
 
       const esUltima = i === actividades.length - 1;
 
-      const breakStyle = i === 0 ? "break-before:avoid;page-break-before:avoid;" : "break-before:page;page-break-before:always;";
+      const breakStyle = i === 0 ? "" : "break-before:page;page-break-before:always;";
       return `
-        <div class="actividad-wrap" style="border:1px solid #E2E8F0;border-radius:10px;overflow:hidden;${breakStyle}">
+        <div style="border:1px solid #E2E8F0;border-radius:10px;overflow:hidden;${breakStyle}">
           <div style="background:#1E293B;padding:10px 14px;display:flex;align-items:center;gap:10px;">
             <div style="font-size:16px;">⚙️</div>
             <div>
@@ -372,16 +372,15 @@ export default function ReporteTurno() {
   @page { margin: 10mm; size: letter; }
   @media print { * { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
   .portada-wrap {
-    width: 190mm;
+    width: 100%;
     height: 259mm;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     text-align: center;
-    break-after: page;
-    page-break-after: always;
   }
+  .salto { display:block; break-after: page; page-break-after: always; height: 0; }
 
 </style>
 </head>
@@ -395,6 +394,7 @@ export default function ReporteTurno() {
     <div style="font-size:14px;color:#475569;text-transform:capitalize;margin-bottom:6px;">${fechaPortada}</div>
     <div style="font-size:12px;color:#94A3B8;">${actividades.length} actividad${actividades.length !== 1 ? "es" : ""} registrada${actividades.length !== 1 ? "s" : ""}</div>
   </div>
+  <span class="salto"></span>
   ${actividadesHTML}
   <script>window.onload = () => { window.print(); }<\/script>
 </body>
