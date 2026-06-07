@@ -143,6 +143,8 @@ const defaultActividad = () => {
     tecnicos: "",
     supervisor: "",
     supervisorManual: "",
+    planificacion: "",
+    planificacionManual: "",
     tareas: makeTareas(linea),
     observaciones: "",
     fotos: [],
@@ -277,10 +279,12 @@ export default function ReporteTurno() {
       });
       const clienteLabel = a.cliente === "__manual__" ? a.clienteManual : a.cliente;
       const supervisorLabel = a.supervisor === "__manual__" ? a.supervisorManual : a.supervisor;
+      const planificacionLabel = a.planificacion === "__manual__" ? a.planificacionManual : a.planificacion;
       const nroLinea = a.nroLinea ? ` N°${a.nroLinea}` : "";
 
       const tareasFinalizadas = a.tareas.filter((t) => !t.titulo && t.estado === "finalizado");
       const tareasPendientesConNota = a.tareas.filter((t) => !t.titulo && t.estado === "pendiente" && t.notaPendiente);
+      const tareasPendientesSinNota = a.tareas.filter((t) => !t.titulo && t.estado === "pendiente" && !t.notaPendiente);
       const tareasNoAplica = a.tareas.filter((t) => !t.titulo && t.estado === "noaplica");
 
       const fotosHTML = a.fotos?.length
@@ -316,6 +320,7 @@ export default function ReporteTurno() {
             ${clienteLabel ? `<div style="background:#F3E8FF;padding:8px 12px;"><div style="font-size:9px;font-weight:700;color:#6B21A8;">CLIENTE</div><div style="font-size:12px;font-weight:600;color:#581C87;">${clienteLabel}</div></div>` : ""}
             ${a.tecnicos ? `<div style="background:#F0FDF4;padding:8px 12px;"><div style="font-size:9px;font-weight:700;color:#166534;">TÉCNICOS</div><div style="font-size:12px;font-weight:600;color:#14532D;">${a.tecnicos}</div></div>` : ""}
             ${supervisorLabel ? `<div style="background:#F8FAFC;padding:8px 12px;"><div style="font-size:9px;font-weight:700;color:#475569;">SUPERVISOR</div><div style="font-size:12px;font-weight:600;color:#1E293B;">${supervisorLabel}</div></div>` : ""}
+            ${planificacionLabel ? `<div style="background:#FFF7ED;padding:8px 12px;"><div style="font-size:9px;font-weight:700;color:#9A3412;">PLANIFICACIÓN</div><div style="font-size:12px;font-weight:600;color:#7C2D12;">${planificacionLabel}</div></div>` : ""}
           </div>
           <div style="padding:14px 18px;">
             <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
@@ -327,6 +332,7 @@ export default function ReporteTurno() {
             </div>
             ${renderTareasPDF(tareasFinalizadas, "✅ FINALIZADO", "#166534")}
             ${renderTareasPDF(tareasPendientesConNota, "⏳ PENDIENTE CON NOTA", "#B45309")}
+            ${renderTareasPDF(tareasPendientesSinNota, "🕐 PENDIENTE", "#64748B")}
             ${renderTareasPDF(tareasNoAplica, "— NO APLICA", "#94A3B8")}
             ${a.observaciones ? `<div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:8px;padding:8px 12px;font-size:12px;color:#475569;margin-top:10px;">📝 ${a.observaciones}</div>` : ""}
             ${fotosHTML}
@@ -334,11 +340,15 @@ export default function ReporteTurno() {
         </div>`;
     }).join("");
 
+    const fechaPortada = new Date().toLocaleDateString("es-CL", {
+      weekday: "long", year: "numeric", month: "long", day: "numeric"
+    });
+
     const html = `<!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>Reporte de Turno</title>
+<title>Reporte Diario SMAN</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: 'Segoe UI', system-ui, sans-serif; background: white; color: #1E293B; max-width: 820px; margin: 0 auto; }
@@ -347,6 +357,16 @@ export default function ReporteTurno() {
 </style>
 </head>
 <body>
+  <!-- PORTADA -->
+  <div style="page-break-after:always;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:90vh;text-align:center;padding:40px;">
+    <div style="font-size:48px;margin-bottom:24px;">⚙️</div>
+    <div style="font-size:11px;font-weight:700;letter-spacing:0.15em;color:#94A3B8;margin-bottom:12px;text-transform:uppercase;">SM Cyclo Chile</div>
+    <div style="font-size:36px;font-weight:800;color:#1E293B;letter-spacing:-1px;margin-bottom:8px;">Reporte Diario</div>
+    <div style="font-size:28px;font-weight:700;color:#0EA5E9;margin-bottom:32px;">SMAN</div>
+    <div style="width:60px;height:4px;background:#0EA5E9;border-radius:99px;margin-bottom:32px;"></div>
+    <div style="font-size:15px;color:#475569;text-transform:capitalize;margin-bottom:8px;">${fechaPortada}</div>
+    <div style="font-size:13px;color:#94A3B8;">${actividades.length} actividad${actividades.length !== 1 ? "es" : ""} registrada${actividades.length !== 1 ? "s" : ""}</div>
+  </div>
   ${actividadesHTML}
   <script>window.onload = () => window.print();<\/script>
 </body>
@@ -385,6 +405,7 @@ export default function ReporteTurno() {
             });
             const clienteLabel = a.cliente === "__manual__" ? a.clienteManual : a.cliente;
             const supervisorLabel = a.supervisor === "__manual__" ? a.supervisorManual : a.supervisor;
+            const planificacionLabel = a.planificacion === "__manual__" ? a.planificacionManual : a.planificacion;
             const nroLinea = a.nroLinea ? ` N°${a.nroLinea}` : "";
             return (
               <div key={a.id} style={S.previewCard}>
@@ -401,6 +422,7 @@ export default function ReporteTurno() {
                   {clienteLabel && <span style={{ ...S.metaChip, background: "#F3E8FF", color: "#6B21A8" }}>🏢 {clienteLabel}</span>}
                   {a.tecnicos && <span style={{ ...S.metaChip, background: "#F0FDF4", color: "#166534" }}>👷 {a.tecnicos}</span>}
                   {supervisorLabel && <span style={{ ...S.metaChip, background: "#F8FAFC", color: "#334155" }}>👤 {supervisorLabel}</span>}
+                  {planificacionLabel && <span style={{ ...S.metaChip, background: "#FFF7ED", color: "#9A3412" }}>📋 Plan: {planificacionLabel}</span>}
                 </div>
                 <div style={S.previewCardBody}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
@@ -588,6 +610,21 @@ export default function ReporteTurno() {
                       onChange={e => updateActividad(a.id, "supervisorManual", e.target.value)} />
                   )}
                 </div>
+              </div>
+
+              <div style={S.fieldGroup}>
+                <label style={S.label}>Planificación</label>
+                <select style={S.select} value={a.planificacion}
+                  onChange={e => updateActividad(a.id, "planificacion", e.target.value)}>
+                  <option value="">— Seleccionar —</option>
+                  <option value="Luis Cortés">Luis Cortés</option>
+                  <option value="__manual__">Otro (escribir)</option>
+                </select>
+                {a.planificacion === "__manual__" && (
+                  <input style={{ ...S.input, marginTop: 6 }} placeholder="Nombre"
+                    value={a.planificacionManual}
+                    onChange={e => updateActividad(a.id, "planificacionManual", e.target.value)} />
+                )}
               </div>
 
               <div style={S.divider} />
