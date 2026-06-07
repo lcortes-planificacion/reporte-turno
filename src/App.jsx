@@ -305,6 +305,18 @@ export default function ReporteTurno() {
                 </div>`).join("")}
             </div>` : "";
 
+      const renderPendientesSinNotaPDF = (lista) =>
+        lista.length
+          ? `<div style="margin-bottom:10px;">
+              <div style="font-size:10px;font-weight:700;color:#64748B;margin-bottom:5px;">🕐 PENDIENTE</div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:2px 12px;">
+                ${lista.map((t) => `
+                  <div style="font-size:11px;color:#475569;padding:2px 0;border-bottom:1px solid #F8FAFC;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                    • ${t.nombre}
+                  </div>`).join("")}
+              </div>
+            </div>` : "";
+
       return `
         <div style="border:1px solid #E2E8F0;border-radius:12px;overflow:hidden;page-break-after:always;">
           <div style="background:#1E293B;padding:14px 18px;display:flex;align-items:center;gap:12px;">
@@ -332,7 +344,7 @@ export default function ReporteTurno() {
             </div>
             ${renderTareasPDF(tareasFinalizadas, "✅ FINALIZADO", "#166534")}
             ${renderTareasPDF(tareasPendientesConNota, "⏳ PENDIENTE CON NOTA", "#B45309")}
-            ${renderTareasPDF(tareasPendientesSinNota, "🕐 PENDIENTE", "#64748B")}
+            ${renderPendientesSinNotaPDF(tareasPendientesSinNota)}
             ${renderTareasPDF(tareasNoAplica, "— NO APLICA", "#94A3B8")}
             ${a.observaciones ? `<div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:8px;padding:8px 12px;font-size:12px;color:#475569;margin-top:10px;">📝 ${a.observaciones}</div>` : ""}
             ${fotosHTML}
