@@ -287,28 +287,22 @@ export default function ReporteTurno() {
       const tareasPendientesSinNota = a.tareas.filter((t) => !t.titulo && t.estado === "pendiente" && !t.notaPendiente);
       const tareasNoAplica = a.tareas.filter((t) => !t.titulo && t.estado === "noaplica");
 
-      const fotosHTML = a.fotos?.length
-        ? `<div style="margin-top:12px;">
-            <div style="font-size:10px;font-weight:700;color:#64748B;margin-bottom:6px;">FOTOS DE EVIDENCIA</div>
-            <div style="display:flex;flex-wrap:wrap;gap:8px;">
-              ${a.fotos.map((f) => `<img src="${f.dataUrl}" style="width:140px;height:105px;object-fit:cover;border-radius:6px;border:1px solid #E2E8F0;" />`).join("")}
-            </div>
-          </div>` : "";
-
-      const renderTareasPDF = (lista, titulo, color) =>
+      const renderTareasPDF = (lista, titulo, color, resaltar = false) =>
         lista.length
-          ? `<div style="margin-bottom:10px;">
-              <div style="font-size:10px;font-weight:700;color:${color};margin-bottom:5px;">${titulo}</div>
-              ${lista.map((t) => `
-                <div style="font-size:12px;color:#1E293B;padding:3px 0;border-bottom:1px solid #F1F5F9;">
-                  • ${t.nombre}${t.notaPendiente ? `<span style="color:#B45309;"> — ${t.notaPendiente}</span>` : ""}
-                </div>`).join("")}
+          ? `<div style="margin-bottom:7px;">
+              <div style="font-size:8px;font-weight:700;color:${color};margin-bottom:3px;">${titulo}</div>
+              <div style="${resaltar ? "background:#FFFBEB;border:1px solid #FCD34D;border-radius:6px;padding:5px 7px;" : ""}display:grid;grid-template-columns:1fr 1fr 1fr;gap:1px 8px;">
+                ${lista.map((t) => `
+                  <div style="font-size:${resaltar ? "10px" : "9px"};font-weight:${resaltar ? "600" : "400"};color:${resaltar ? "#92400E" : "#1E293B"};padding:${resaltar ? "2px 0" : "1px 0"};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+                    ${resaltar ? "⚠️" : "·"} ${t.nombre}${t.notaPendiente ? ` <span style="color:#B45309;font-style:italic;">— ${t.notaPendiente}</span>` : ""}
+                  </div>`).join("")}
+              </div>
             </div>` : "";
 
       const renderPendientesSinNotaPDF = (lista) =>
         lista.length
-          ? `<div style="margin-bottom:8px;">
-              <div style="font-size:9px;font-weight:700;color:#64748B;margin-bottom:4px;">🕐 PENDIENTE</div>
+          ? `<div style="margin-bottom:7px;">
+              <div style="font-size:8px;font-weight:700;color:#64748B;margin-bottom:3px;">🕐 PENDIENTE</div>
               <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1px 8px;">
                 ${lista.map((t) => `
                   <div style="font-size:9px;color:#64748B;padding:1px 0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
@@ -317,38 +311,46 @@ export default function ReporteTurno() {
               </div>
             </div>` : "";
 
+      const fotosHTML = a.fotos?.length
+        ? `<div style="margin-top:8px;">
+            <div style="font-size:8px;font-weight:700;color:#64748B;margin-bottom:4px;">FOTOS DE EVIDENCIA</div>
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;">
+              ${a.fotos.slice(0,6).map((f) => `<img src="${f.dataUrl}" style="width:100%;height:80px;object-fit:cover;border-radius:4px;border:1px solid #E2E8F0;" />`).join("")}
+            </div>
+          </div>` : "";
+
       const esUltima = i === actividades.length - 1;
 
       return `
-        <div style="border:1px solid #E2E8F0;border-radius:12px;overflow:hidden;${esUltima ? "" : "page-break-after:always;"}">
-          <div style="background:#1E293B;padding:12px 16px;display:flex;align-items:center;gap:12px;">
-            <div style="font-size:18px;">⚙️</div>
+        <div class="pagina" style="border:1px solid #E2E8F0;border-radius:10px;overflow:hidden;">
+          <div style="background:#1E293B;padding:10px 14px;display:flex;align-items:center;gap:10px;">
+            <div style="font-size:16px;">⚙️</div>
             <div>
-              <div style="color:#F1F5F9;font-weight:800;font-size:14px;">Turno ${a.turno} — ${a.linea}${nroLinea} — Actividad ${i + 1}</div>
-              <div style="color:#94A3B8;font-size:10px;text-transform:capitalize;margin-top:2px;">${fecha}</div>
+              <div style="color:#F1F5F9;font-weight:800;font-size:13px;">Turno ${a.turno} — ${a.linea}${nroLinea} — Actividad ${i + 1}</div>
+              <div style="color:#94A3B8;font-size:9px;text-transform:capitalize;margin-top:1px;">${fecha}</div>
             </div>
           </div>
           <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:#E2E8F0;">
-            ${a.ran ? `<div style="background:#FEF9C3;padding:6px 10px;"><div style="font-size:8px;font-weight:700;color:#92400E;">RAN</div><div style="font-size:11px;font-weight:600;color:#78350F;">${a.ran}</div></div>` : ""}
-            ${a.unidad ? `<div style="background:#EFF6FF;padding:6px 10px;"><div style="font-size:8px;font-weight:700;color:#1D4ED8;">UNIDAD / EQUIPO</div><div style="font-size:11px;font-weight:600;color:#1E40AF;">${a.unidad}</div></div>` : ""}
-            ${clienteLabel ? `<div style="background:#F3E8FF;padding:6px 10px;"><div style="font-size:8px;font-weight:700;color:#6B21A8;">CLIENTE</div><div style="font-size:11px;font-weight:600;color:#581C87;">${clienteLabel}</div></div>` : ""}
-            ${a.tecnicos ? `<div style="background:#F0FDF4;padding:6px 10px;"><div style="font-size:8px;font-weight:700;color:#166534;">TÉCNICOS</div><div style="font-size:11px;font-weight:600;color:#14532D;">${a.tecnicos}</div></div>` : ""}
-            ${supervisorLabel ? `<div style="background:#F8FAFC;padding:6px 10px;"><div style="font-size:8px;font-weight:700;color:#475569;">SUPERVISOR</div><div style="font-size:11px;font-weight:600;color:#1E293B;">${supervisorLabel}</div></div>` : ""}
-            ${planificacionLabel ? `<div style="background:#FFF7ED;padding:6px 10px;"><div style="font-size:8px;font-weight:700;color:#9A3412;">PLANIFICACIÓN</div><div style="font-size:11px;font-weight:600;color:#7C2D12;">${planificacionLabel}</div></div>` : ""}
+            ${a.ran ? `<div style="background:#FEF9C3;padding:5px 8px;"><div style="font-size:7px;font-weight:700;color:#92400E;">RAN</div><div style="font-size:10px;font-weight:600;color:#78350F;">${a.ran}</div></div>` : ""}
+            ${a.unidad ? `<div style="background:#EFF6FF;padding:5px 8px;"><div style="font-size:7px;font-weight:700;color:#1D4ED8;">UNIDAD / EQUIPO</div><div style="font-size:10px;font-weight:600;color:#1E40AF;">${a.unidad}</div></div>` : ""}
+            ${clienteLabel ? `<div style="background:#F3E8FF;padding:5px 8px;"><div style="font-size:7px;font-weight:700;color:#6B21A8;">CLIENTE</div><div style="font-size:10px;font-weight:600;color:#581C87;">${clienteLabel}</div></div>` : ""}
+            ${a.tecnicos ? `<div style="background:#F0FDF4;padding:5px 8px;"><div style="font-size:7px;font-weight:700;color:#166534;">TÉCNICOS</div><div style="font-size:10px;font-weight:600;color:#14532D;">${a.tecnicos}</div></div>` : ""}
+            ${supervisorLabel ? `<div style="background:#F8FAFC;padding:5px 8px;"><div style="font-size:7px;font-weight:700;color:#475569;">SUPERVISOR</div><div style="font-size:10px;font-weight:600;color:#1E293B;">${supervisorLabel}</div></div>` : ""}
+            ${planificacionLabel ? `<div style="background:#FFF7ED;padding:5px 8px;"><div style="font-size:7px;font-weight:700;color:#9A3412;">PLANIFICACIÓN</div><div style="font-size:10px;font-weight:600;color:#7C2D12;">${planificacionLabel}</div></div>` : ""}
           </div>
-          <div style="padding:12px 16px;">
-            <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
-              <div style="font-size:9px;font-weight:700;color:#64748B;min-width:50px;">AVANCE</div>
-              <div style="flex:1;background:#E2E8F0;border-radius:99px;height:8px;overflow:hidden;">
+          <div style="padding:10px 14px;">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+              <div style="font-size:8px;font-weight:700;color:#64748B;min-width:45px;">AVANCE</div>
+              <div style="flex:1;background:#E2E8F0;border-radius:99px;height:7px;overflow:hidden;">
                 <div style="height:100%;border-radius:99px;width:${avance}%;background:${avance === 100 ? "#10B981" : avance >= 60 ? "#F59E0B" : "#EF4444"};"></div>
               </div>
-              <span style="font-size:13px;font-weight:800;color:#1E293B;min-width:36px;text-align:right;">${avance}%</span>
+              <span style="font-size:12px;font-weight:800;color:#1E293B;min-width:34px;text-align:right;">${avance}%</span>
             </div>
             ${renderTareasPDF(tareasFinalizadas, "✅ FINALIZADO", "#166534")}
-            ${renderTareasPDF(tareasPendientesConNota, "⏳ PENDIENTE CON NOTA", "#B45309")}
+            ${renderTareasPDF(tareasPendientesConNota, "⏳ PENDIENTE CON NOTA", "#B45309", true)}
             ${renderPendientesSinNotaPDF(tareasPendientesSinNota)}
             ${renderTareasPDF(tareasNoAplica, "— NO APLICA", "#94A3B8")}
-            ${a.observaciones ? `<div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:8px;padding:6px 10px;font-size:11px;color:#475569;margin-top:8px;">📝 ${a.observaciones}</div>` : ""}
+            ${a.observaciones ? `<div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:6px;padding:5px 8px;font-size:9px;color:#475569;margin-top:6px;">📝 ${a.observaciones}</div>` : ""}
             ${fotosHTML}
           </div>
         </div>`;
@@ -365,24 +367,29 @@ export default function ReporteTurno() {
 <title>Reporte Diario SMAN</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: 'Segoe UI', system-ui, sans-serif; background: white; color: #1E293B; max-width: 820px; margin: 0 auto; }
-  @page { margin: 12mm; size: A4; }
+  html, body { width: 100%; background: white; font-family: 'Segoe UI', system-ui, sans-serif; color: #1E293B; }
+  @page { margin: 10mm; size: letter; }
   @media print { * { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+  .pagina { width: 100%; page-break-after: always; }
+  .pagina:last-child { page-break-after: avoid; }
+  .portada { display: table; width: 100%; height: 259mm; }
+  .portada-inner { display: table-cell; vertical-align: middle; text-align: center; padding: 40px; }
 </style>
 </head>
 <body>
-  <!-- PORTADA -->
-  <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:calc(100vh - 24mm);text-align:center;padding:40px;page-break-after:always;">
-    <div style="font-size:48px;margin-bottom:24px;">⚙️</div>
-    <div style="font-size:11px;font-weight:700;letter-spacing:0.15em;color:#94A3B8;margin-bottom:12px;text-transform:uppercase;">SM Cyclo Chile</div>
-    <div style="font-size:36px;font-weight:800;color:#1E293B;letter-spacing:-1px;margin-bottom:8px;">Reporte Diario</div>
-    <div style="font-size:28px;font-weight:700;color:#0EA5E9;margin-bottom:32px;">SMAN</div>
-    <div style="width:60px;height:4px;background:#0EA5E9;border-radius:99px;margin-bottom:32px;"></div>
-    <div style="font-size:15px;color:#475569;text-transform:capitalize;margin-bottom:8px;">${fechaPortada}</div>
-    <div style="font-size:13px;color:#94A3B8;">${actividades.length} actividad${actividades.length !== 1 ? "es" : ""} registrada${actividades.length !== 1 ? "s" : ""}</div>
+  <div class="pagina portada">
+    <div class="portada-inner">
+      <div style="font-size:48px;margin-bottom:20px;">⚙️</div>
+      <div style="font-size:10px;font-weight:700;letter-spacing:0.15em;color:#94A3B8;margin-bottom:10px;text-transform:uppercase;">SM Cyclo Chile</div>
+      <div style="font-size:34px;font-weight:800;color:#1E293B;letter-spacing:-1px;margin-bottom:6px;">Reporte Diario</div>
+      <div style="font-size:26px;font-weight:700;color:#0EA5E9;margin-bottom:24px;">SMAN</div>
+      <div style="width:50px;height:4px;background:#0EA5E9;border-radius:99px;margin:0 auto 24px;"></div>
+      <div style="font-size:14px;color:#475569;text-transform:capitalize;margin-bottom:6px;">${fechaPortada}</div>
+      <div style="font-size:12px;color:#94A3B8;">${actividades.length} actividad${actividades.length !== 1 ? "es" : ""} registrada${actividades.length !== 1 ? "s" : ""}</div>
+    </div>
   </div>
   ${actividadesHTML}
-  <script>window.onload = () => window.print();<\/script>
+  <script>window.onload = () => { window.print(); }<\/script>
 </body>
 </html>`;
 
