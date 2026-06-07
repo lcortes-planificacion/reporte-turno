@@ -307,46 +307,48 @@ export default function ReporteTurno() {
 
       const renderPendientesSinNotaPDF = (lista) =>
         lista.length
-          ? `<div style="margin-bottom:10px;">
-              <div style="font-size:10px;font-weight:700;color:#64748B;margin-bottom:5px;">🕐 PENDIENTE</div>
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:2px 12px;">
+          ? `<div style="margin-bottom:8px;">
+              <div style="font-size:9px;font-weight:700;color:#64748B;margin-bottom:4px;">🕐 PENDIENTE</div>
+              <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1px 8px;">
                 ${lista.map((t) => `
-                  <div style="font-size:11px;color:#475569;padding:2px 0;border-bottom:1px solid #F8FAFC;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-                    • ${t.nombre}
+                  <div style="font-size:9px;color:#64748B;padding:1px 0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+                    · ${t.nombre}
                   </div>`).join("")}
               </div>
             </div>` : "";
 
+      const esUltima = i === actividades.length - 1;
+
       return `
-        <div style="border:1px solid #E2E8F0;border-radius:12px;overflow:hidden;page-break-after:always;">
-          <div style="background:#1E293B;padding:14px 18px;display:flex;align-items:center;gap:12px;">
-            <div style="font-size:20px;">⚙️</div>
+        <div style="border:1px solid #E2E8F0;border-radius:12px;overflow:hidden;${esUltima ? "" : "page-break-after:always;"}">
+          <div style="background:#1E293B;padding:12px 16px;display:flex;align-items:center;gap:12px;">
+            <div style="font-size:18px;">⚙️</div>
             <div>
-              <div style="color:#F1F5F9;font-weight:800;font-size:15px;">Turno ${a.turno} — ${a.linea}${nroLinea} — Actividad ${i + 1}</div>
-              <div style="color:#94A3B8;font-size:11px;text-transform:capitalize;margin-top:2px;">${fecha}</div>
+              <div style="color:#F1F5F9;font-weight:800;font-size:14px;">Turno ${a.turno} — ${a.linea}${nroLinea} — Actividad ${i + 1}</div>
+              <div style="color:#94A3B8;font-size:10px;text-transform:capitalize;margin-top:2px;">${fecha}</div>
             </div>
           </div>
           <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:#E2E8F0;">
-            ${a.ran ? `<div style="background:#FEF9C3;padding:8px 12px;"><div style="font-size:9px;font-weight:700;color:#92400E;">RAN</div><div style="font-size:12px;font-weight:600;color:#78350F;">${a.ran}</div></div>` : ""}
-            ${a.unidad ? `<div style="background:#EFF6FF;padding:8px 12px;"><div style="font-size:9px;font-weight:700;color:#1D4ED8;">UNIDAD / EQUIPO</div><div style="font-size:12px;font-weight:600;color:#1E40AF;">${a.unidad}</div></div>` : ""}
-            ${clienteLabel ? `<div style="background:#F3E8FF;padding:8px 12px;"><div style="font-size:9px;font-weight:700;color:#6B21A8;">CLIENTE</div><div style="font-size:12px;font-weight:600;color:#581C87;">${clienteLabel}</div></div>` : ""}
-            ${a.tecnicos ? `<div style="background:#F0FDF4;padding:8px 12px;"><div style="font-size:9px;font-weight:700;color:#166534;">TÉCNICOS</div><div style="font-size:12px;font-weight:600;color:#14532D;">${a.tecnicos}</div></div>` : ""}
-            ${supervisorLabel ? `<div style="background:#F8FAFC;padding:8px 12px;"><div style="font-size:9px;font-weight:700;color:#475569;">SUPERVISOR</div><div style="font-size:12px;font-weight:600;color:#1E293B;">${supervisorLabel}</div></div>` : ""}
-            ${planificacionLabel ? `<div style="background:#FFF7ED;padding:8px 12px;"><div style="font-size:9px;font-weight:700;color:#9A3412;">PLANIFICACIÓN</div><div style="font-size:12px;font-weight:600;color:#7C2D12;">${planificacionLabel}</div></div>` : ""}
+            ${a.ran ? `<div style="background:#FEF9C3;padding:6px 10px;"><div style="font-size:8px;font-weight:700;color:#92400E;">RAN</div><div style="font-size:11px;font-weight:600;color:#78350F;">${a.ran}</div></div>` : ""}
+            ${a.unidad ? `<div style="background:#EFF6FF;padding:6px 10px;"><div style="font-size:8px;font-weight:700;color:#1D4ED8;">UNIDAD / EQUIPO</div><div style="font-size:11px;font-weight:600;color:#1E40AF;">${a.unidad}</div></div>` : ""}
+            ${clienteLabel ? `<div style="background:#F3E8FF;padding:6px 10px;"><div style="font-size:8px;font-weight:700;color:#6B21A8;">CLIENTE</div><div style="font-size:11px;font-weight:600;color:#581C87;">${clienteLabel}</div></div>` : ""}
+            ${a.tecnicos ? `<div style="background:#F0FDF4;padding:6px 10px;"><div style="font-size:8px;font-weight:700;color:#166534;">TÉCNICOS</div><div style="font-size:11px;font-weight:600;color:#14532D;">${a.tecnicos}</div></div>` : ""}
+            ${supervisorLabel ? `<div style="background:#F8FAFC;padding:6px 10px;"><div style="font-size:8px;font-weight:700;color:#475569;">SUPERVISOR</div><div style="font-size:11px;font-weight:600;color:#1E293B;">${supervisorLabel}</div></div>` : ""}
+            ${planificacionLabel ? `<div style="background:#FFF7ED;padding:6px 10px;"><div style="font-size:8px;font-weight:700;color:#9A3412;">PLANIFICACIÓN</div><div style="font-size:11px;font-weight:600;color:#7C2D12;">${planificacionLabel}</div></div>` : ""}
           </div>
-          <div style="padding:14px 18px;">
-            <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
-              <div style="font-size:10px;font-weight:700;color:#64748B;min-width:60px;">AVANCE</div>
-              <div style="flex:1;background:#E2E8F0;border-radius:99px;height:10px;overflow:hidden;">
+          <div style="padding:12px 16px;">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+              <div style="font-size:9px;font-weight:700;color:#64748B;min-width:50px;">AVANCE</div>
+              <div style="flex:1;background:#E2E8F0;border-radius:99px;height:8px;overflow:hidden;">
                 <div style="height:100%;border-radius:99px;width:${avance}%;background:${avance === 100 ? "#10B981" : avance >= 60 ? "#F59E0B" : "#EF4444"};"></div>
               </div>
-              <span style="font-size:14px;font-weight:800;color:#1E293B;min-width:38px;text-align:right;">${avance}%</span>
+              <span style="font-size:13px;font-weight:800;color:#1E293B;min-width:36px;text-align:right;">${avance}%</span>
             </div>
             ${renderTareasPDF(tareasFinalizadas, "✅ FINALIZADO", "#166534")}
             ${renderTareasPDF(tareasPendientesConNota, "⏳ PENDIENTE CON NOTA", "#B45309")}
             ${renderPendientesSinNotaPDF(tareasPendientesSinNota)}
             ${renderTareasPDF(tareasNoAplica, "— NO APLICA", "#94A3B8")}
-            ${a.observaciones ? `<div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:8px;padding:8px 12px;font-size:12px;color:#475569;margin-top:10px;">📝 ${a.observaciones}</div>` : ""}
+            ${a.observaciones ? `<div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:8px;padding:6px 10px;font-size:11px;color:#475569;margin-top:8px;">📝 ${a.observaciones}</div>` : ""}
             ${fotosHTML}
           </div>
         </div>`;
@@ -370,7 +372,7 @@ export default function ReporteTurno() {
 </head>
 <body>
   <!-- PORTADA -->
-  <div style="page-break-after:always;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:90vh;text-align:center;padding:40px;">
+  <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:calc(100vh - 24mm);text-align:center;padding:40px;page-break-after:always;">
     <div style="font-size:48px;margin-bottom:24px;">⚙️</div>
     <div style="font-size:11px;font-weight:700;letter-spacing:0.15em;color:#94A3B8;margin-bottom:12px;text-transform:uppercase;">SM Cyclo Chile</div>
     <div style="font-size:36px;font-weight:800;color:#1E293B;letter-spacing:-1px;margin-bottom:8px;">Reporte Diario</div>
