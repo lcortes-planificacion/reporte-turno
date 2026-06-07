@@ -321,8 +321,9 @@ export default function ReporteTurno() {
 
       const esUltima = i === actividades.length - 1;
 
+      const pbStyle = i === 0 ? "" : "page-break-before:always;";
       return `
-        <div class="pagina" style="border:1px solid #E2E8F0;border-radius:10px;overflow:hidden;">
+        <div class="pagina" style="border:1px solid #E2E8F0;border-radius:10px;overflow:hidden;${pbStyle}">
           <div style="background:#1E293B;padding:10px 14px;display:flex;align-items:center;gap:10px;">
             <div style="font-size:16px;">⚙️</div>
             <div>
@@ -370,15 +371,12 @@ export default function ReporteTurno() {
   html, body { width: 100%; background: white; font-family: 'Segoe UI', system-ui, sans-serif; color: #1E293B; }
   @page { margin: 10mm; size: letter; }
   @media print { * { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
-  .pagina { width: 100%; page-break-after: always; }
-  .pagina:last-child { page-break-after: avoid; }
-  .portada { display: table; width: 100%; height: 259mm; }
-  .portada-inner { display: table-cell; vertical-align: middle; text-align: center; padding: 40px; }
+  .pagina { width: 100%; page-break-before: always; }
 </style>
 </head>
 <body>
-  <div class="pagina portada">
-    <div class="portada-inner">
+  <table style="width:100%;height:259mm;border-collapse:collapse;">
+    <tr><td style="vertical-align:middle;text-align:center;padding:40px;">
       <div style="font-size:48px;margin-bottom:20px;">⚙️</div>
       <div style="font-size:10px;font-weight:700;letter-spacing:0.15em;color:#94A3B8;margin-bottom:10px;text-transform:uppercase;">SM Cyclo Chile</div>
       <div style="font-size:34px;font-weight:800;color:#1E293B;letter-spacing:-1px;margin-bottom:6px;">Reporte Diario</div>
@@ -386,8 +384,8 @@ export default function ReporteTurno() {
       <div style="width:50px;height:4px;background:#0EA5E9;border-radius:99px;margin:0 auto 24px;"></div>
       <div style="font-size:14px;color:#475569;text-transform:capitalize;margin-bottom:6px;">${fechaPortada}</div>
       <div style="font-size:12px;color:#94A3B8;">${actividades.length} actividad${actividades.length !== 1 ? "es" : ""} registrada${actividades.length !== 1 ? "s" : ""}</div>
-    </div>
-  </div>
+    </td></tr>
+  </table>
   ${actividadesHTML}
   <script>window.onload = () => { window.print(); }<\/script>
 </body>
