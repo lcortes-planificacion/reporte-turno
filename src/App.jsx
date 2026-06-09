@@ -291,10 +291,10 @@ export default function ReporteTurno() {
         lista.length
           ? `<div style="margin-bottom:7px;">
               <div style="font-size:8px;font-weight:700;color:${color};margin-bottom:3px;">${titulo}</div>
-              <div style="${resaltar ? "background:#FFFBEB;border:1px solid #FCD34D;border-radius:6px;padding:5px 7px;" : ""}display:grid;grid-template-columns:1fr 1fr 1fr;gap:2px 8px;">
+              <div style="${resaltar ? "background:#FFFBEB;border:1px solid #FCD34D;border-radius:6px;padding:5px 7px;" : ""}display:grid;grid-template-columns:1fr 1fr 1fr;gap:1px 8px;">
                 ${lista.map((t) => `
-                  <div style="font-size:${resaltar ? "10px" : "9px"};font-weight:${resaltar ? "600" : "400"};color:${resaltar ? "#92400E" : "#1E293B"};padding:${resaltar ? "2px 0" : "1px 0"};word-break:break-word;overflow-wrap:break-word;white-space:normal;">
-                    ${resaltar ? "⚠️" : "·"} ${t.nombre}${t.notaPendiente ? `<br><span style="color:#B45309;font-style:italic;font-size:9px;">↳ ${t.notaPendiente}</span>` : ""}
+                  <div style="font-size:${resaltar ? "10px" : "9px"};font-weight:${resaltar ? "600" : "400"};color:${resaltar ? "#92400E" : "#1E293B"};padding:${resaltar ? "2px 0" : "1px 0"};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+                    ${resaltar ? "⚠️" : "·"} ${t.nombre}${t.notaPendiente ? ` <span style="color:#B45309;font-style:italic;">— ${t.notaPendiente}</span>` : ""}
                   </div>`).join("")}
               </div>
             </div>` : "";
@@ -303,9 +303,9 @@ export default function ReporteTurno() {
         lista.length
           ? `<div style="margin-bottom:7px;">
               <div style="font-size:8px;font-weight:700;color:#64748B;margin-bottom:3px;">🕐 PENDIENTE</div>
-              <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:2px 8px;">
+              <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1px 8px;">
                 ${lista.map((t) => `
-                  <div style="font-size:9px;color:#64748B;padding:1px 0;word-break:break-word;overflow-wrap:break-word;white-space:normal;">
+                  <div style="font-size:9px;color:#64748B;padding:1px 0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
                     · ${t.nombre}
                   </div>`).join("")}
               </div>
@@ -517,218 +517,232 @@ export default function ReporteTurno() {
 
         {actividades.map((a, i) => {
           const avance = calcAvance(a.tareas);
-          const abierta = actividadAbierta === a.id;
-          const clienteLabel = a.cliente === "__manual__" ? a.clienteManual : a.cliente;
-          const nroLinea = a.nroLinea ? ` N°${a.nroLinea}` : "";
-          const lineaColor = a.linea === "Ensamble" ? "#0EA5E9" : "#8B5CF6";
-          const avanceColor = avance === 100 ? "#10B981" : avance >= 60 ? "#F59E0B" : "#EF4444";
           return (
-            <div key={a.id} style={{ background:"#fff", borderRadius:10, marginBottom:6, border:"1px solid #E2E8F0", overflow:"hidden" }}>
+            <div key={a.id} style={S.section}>
+              {/* Título */}
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+                <div style={S.actCardNum}>#{i + 1}</div>
+                <div style={{ flex: 1, fontWeight: 700, fontSize: 15, color: "#1E293B" }}>Actividad {i + 1}</div>
+                {actividades.length > 1 && (
+                  <button style={S.removeBtn} onClick={() => removeActividad(a.id)}>✕ Eliminar</button>
+                )}
+              </div>
 
-              {/* ── CABECERA ── */}
-              <div style={{ display:"flex", alignItems:"stretch" }}>
-                {/* Botones ▲▼ */}
-                <div style={{ display:"flex", flexDirection:"column", borderRight:"1px solid #E2E8F0", flexShrink:0 }}>
-                  <button disabled={i===0} onClick={()=>moverActividad(a.id,-1)}
-                    style={{ flex:1, width:26, border:"none", background:"transparent", cursor:i===0?"default":"pointer", color:i===0?"#CBD5E1":"#64748B", fontSize:11, borderBottom:"1px solid #E2E8F0" }}>▲</button>
-                  <button disabled={i===actividades.length-1} onClick={()=>moverActividad(a.id,1)}
-                    style={{ flex:1, width:26, border:"none", background:"transparent", cursor:i===actividades.length-1?"default":"pointer", color:i===actividades.length-1?"#CBD5E1":"#64748B", fontSize:11 }}>▼</button>
+              <div style={S.sectionLabel}>ENCABEZADO</div>
+
+              {/* Fecha sola */}
+              <div style={S.fieldGroup}>
+                <label style={S.label}>Fecha</label>
+                <input type="date" style={S.input} value={a.fecha}
+                  onChange={e => updateActividad(a.id, "fecha", e.target.value)} />
+              </div>
+
+              {/* Línea + Turno */}
+              <div style={S.row2}>
+                <div style={S.fieldGroup}>
+                  <label style={S.label}>Línea</label>
+                  <div style={{ display: "flex", gap: 6 }}>
+                    {LINEAS.map(l => (
+                      <button key={l}
+                        style={{
+                          flex: 1, padding: "9px 4px", border: "1.5px solid #E2E8F0", borderRadius: 8,
+                          fontSize: 12, fontWeight: 700, cursor: "pointer",
+                          background: a.linea === l ? (l === "Ensamble" ? "#0EA5E9" : "#8B5CF6") : "#F8FAFC",
+                          color: a.linea === l ? "#fff" : "#64748B",
+                          borderColor: a.linea === l ? (l === "Ensamble" ? "#0EA5E9" : "#8B5CF6") : "#E2E8F0",
+                        }}
+                        onClick={() => cambiarLinea(a.id, l)}>
+                        {l}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-
-                {/* Cabecera clicable */}
-                <div onClick={()=>setActividadAbierta(abierta?null:a.id)}
-                  style={{ flex:1, display:"flex", alignItems:"center", gap:8, padding:"8px 10px", cursor:"pointer", background:abierta?"#F1F5F9":"#fff", userSelect:"none", minWidth:0 }}>
-                  <div style={{ background:abierta?"#1E293B":"#E2E8F0", color:abierta?"#fff":"#64748B", borderRadius:4, width:20, height:20, flexShrink:0, display:"flex", alignItems:"center", justifyContent:"center", fontSize:10, fontWeight:700 }}>{i+1}</div>
-                  <div style={{ flex:1, minWidth:0 }}>
-                    <div style={{ display:"flex", alignItems:"center", gap:4, flexWrap:"wrap" }}>
-                      <span style={{ fontSize:9, fontWeight:700, color:"#fff", background:lineaColor, borderRadius:3, padding:"1px 5px", flexShrink:0 }}>{a.linea}{nroLinea}</span>
-                      {a.ran && <span style={{ fontSize:12, fontWeight:700, color:"#1E293B" }}>RAN {a.ran}</span>}
-                      {a.unidad && <span style={{ fontSize:11, color:"#64748B" }}>· {a.unidad}</span>}
-                    </div>
-                    {clienteLabel && <div style={{ fontSize:10, color:"#94A3B8", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{clienteLabel}</div>}
+                <div style={S.fieldGroup}>
+                  <label style={S.label}>Turno</label>
+                  <div style={{ display: "flex", gap: 6 }}>
+                    {TURNOS.map(t => (
+                      <button key={t}
+                        style={{
+                          flex: 1, padding: "9px 4px", border: "1.5px solid #E2E8F0", borderRadius: 8,
+                          fontSize: 13, fontWeight: 700, cursor: "pointer",
+                          background: a.turno === t ? "#1E293B" : "#F8FAFC",
+                          color: a.turno === t ? "#fff" : "#64748B",
+                          borderColor: a.turno === t ? "#1E293B" : "#E2E8F0",
+                        }}
+                        onClick={() => updateActividad(a.id, "turno", t)}>
+                        {t}
+                      </button>
+                    ))}
                   </div>
-                  <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:2, flexShrink:0 }}>
-                    <span style={{ fontSize:11, fontWeight:800, color:avanceColor }}>{avance}%</span>
-                    <div style={{ width:40, background:"#E2E8F0", borderRadius:99, height:3, overflow:"hidden" }}>
-                      <div style={{ height:"100%", borderRadius:99, width:`${avance}%`, background:avanceColor }} />
-                    </div>
-                  </div>
-                  <div style={{ fontSize:9, color:"#94A3B8", flexShrink:0, transform:abierta?"rotate(180deg)":"none", transition:"transform 0.2s" }}>▼</div>
                 </div>
               </div>
 
-              {/* ── CUERPO ── */}
-              {abierta && (
-                <div style={{ padding:"10px 10px 12px", borderTop:"1px solid #E2E8F0" }}>
+              {/* N° Línea */}
+              <div style={{ ...S.fieldGroup, maxWidth: 180, marginBottom: 12 }}>
+                <label style={S.label}>N° Línea</label>
+                <input type="number" style={S.input} placeholder="Ej: 3"
+                  value={a.nroLinea}
+                  onChange={e => updateActividad(a.id, "nroLinea", e.target.value)} />
+              </div>
 
-                  {/* Fila 1: Línea + Turno + N°Línea + Fecha */}
-                  <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 60px 1fr", gap:5, marginBottom:5 }}>
-                    {/* Línea */}
-                    <div style={{ display:"flex", gap:3 }}>
-                      {LINEAS.map(l => (
-                        <button key={l} onClick={()=>cambiarLinea(a.id,l)} style={{
-                          flex:1, padding:"5px 2px", border:"1.5px solid", borderRadius:5, fontSize:10, fontWeight:700, cursor:"pointer",
-                          background: a.linea===l?(l==="Ensamble"?"#0EA5E9":"#8B5CF6"):"#F8FAFC",
-                          color: a.linea===l?"#fff":"#94A3B8",
-                          borderColor: a.linea===l?(l==="Ensamble"?"#0EA5E9":"#8B5CF6"):"#E2E8F0",
-                        }}>{l==="Ensamble"?"Ensam.":"Desarm."}</button>
-                      ))}
-                    </div>
-                    {/* Turno */}
-                    <div style={{ display:"flex", gap:3 }}>
-                      {TURNOS.map(t => (
-                        <button key={t} onClick={()=>updateActividad(a.id,"turno",t)} style={{
-                          flex:1, padding:"5px 2px", border:"1.5px solid", borderRadius:5, fontSize:11, fontWeight:700, cursor:"pointer",
-                          background: a.turno===t?"#1E293B":"#F8FAFC",
-                          color: a.turno===t?"#fff":"#94A3B8",
-                          borderColor: a.turno===t?"#1E293B":"#E2E8F0",
-                        }}>T{t}</button>
-                      ))}
-                    </div>
-                    {/* N° Línea */}
-                    <input type="number" style={S.inputXS} placeholder="N°" value={a.nroLinea}
-                      onChange={e=>updateActividad(a.id,"nroLinea",e.target.value)} />
-                    {/* Fecha */}
-                    <input type="date" style={S.inputXS} value={a.fecha}
-                      onChange={e=>updateActividad(a.id,"fecha",e.target.value)} />
-                  </div>
+              <div style={S.row2}>
+                <div style={S.fieldGroup}>
+                  <label style={S.label}>RAN</label>
+                  <input style={S.input} placeholder="Número de orden" value={a.ran}
+                    onChange={e => updateActividad(a.id, "ran", e.target.value)} />
+                </div>
+                <div style={S.fieldGroup}>
+                  <label style={S.label}>Unidad / Equipo</label>
+                  <input style={S.input} placeholder="Ej: Reductor #4" value={a.unidad}
+                    onChange={e => updateActividad(a.id, "unidad", e.target.value)} />
+                </div>
+              </div>
 
-                  {/* Fila 2: RAN + Unidad */}
-                  <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:5, marginBottom:5 }}>
-                    <input style={S.inputXS} placeholder="RAN" value={a.ran}
-                      onChange={e=>updateActividad(a.id,"ran",e.target.value)} />
-                    <input style={S.inputXS} placeholder="Unidad / Equipo" value={a.unidad}
-                      onChange={e=>updateActividad(a.id,"unidad",e.target.value)} />
-                  </div>
+              {/* Cliente */}
+              <div style={S.fieldGroup}>
+                <label style={S.label}>Cliente</label>
+                <select style={S.select} value={a.cliente}
+                  onChange={e => updateActividad(a.id, "cliente", e.target.value)}>
+                  <option value="">— Seleccionar cliente —</option>
+                  {CLIENTES.map(c => <option key={c} value={c}>{c}</option>)}
+                  <option value="__manual__">Otro (escribir)</option>
+                </select>
+                {a.cliente === "__manual__" && (
+                  <input style={{ ...S.input, marginTop: 6 }} placeholder="Nombre del cliente"
+                    value={a.clienteManual}
+                    onChange={e => updateActividad(a.id, "clienteManual", e.target.value)} />
+                )}
+              </div>
 
-                  {/* Cliente */}
-                  <select style={{ ...S.inputXS, marginBottom:5 }} value={a.cliente}
-                    onChange={e=>updateActividad(a.id,"cliente",e.target.value)}>
-                    <option value="">— Cliente —</option>
-                    {CLIENTES.map(c=><option key={c} value={c}>{c}</option>)}
+              <div style={S.row2}>
+                <div style={S.fieldGroup}>
+                  <label style={S.label}>Técnicos asignados</label>
+                  <input style={S.input} placeholder="Ej: José, Alejandro, Francis" value={a.tecnicos}
+                    onChange={e => updateActividad(a.id, "tecnicos", e.target.value)} />
+                </div>
+                <div style={S.fieldGroup}>
+                  <label style={S.label}>Supervisor</label>
+                  <select style={S.select} value={a.supervisor}
+                    onChange={e => updateActividad(a.id, "supervisor", e.target.value)}>
+                    <option value="">— Seleccionar —</option>
+                    {SUPERVISORES.map(s => <option key={s} value={s}>{s}</option>)}
                     <option value="__manual__">Otro (escribir)</option>
                   </select>
-                  {a.cliente==="__manual__" && (
-                    <input style={{ ...S.inputXS, marginBottom:5 }} placeholder="Nombre del cliente"
-                      value={a.clienteManual} onChange={e=>updateActividad(a.id,"clienteManual",e.target.value)} />
-                  )}
-
-                  {/* Fila 3: Técnicos + Supervisor */}
-                  <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:5, marginBottom:5 }}>
-                    <input style={S.inputXS} placeholder="Técnicos" value={a.tecnicos}
-                      onChange={e=>updateActividad(a.id,"tecnicos",e.target.value)} />
-                    <select style={S.inputXS} value={a.supervisor}
-                      onChange={e=>updateActividad(a.id,"supervisor",e.target.value)}>
-                      <option value="">— Supervisor —</option>
-                      {SUPERVISORES.map(s=><option key={s} value={s}>{s}</option>)}
-                      <option value="__manual__">Otro</option>
-                    </select>
-                  </div>
-                  {a.supervisor==="__manual__" && (
-                    <input style={{ ...S.inputXS, marginBottom:5 }} placeholder="Nombre supervisor"
-                      value={a.supervisorManual} onChange={e=>updateActividad(a.id,"supervisorManual",e.target.value)} />
-                  )}
-
-                  {/* Planificación */}
-                  <select style={{ ...S.inputXS, marginBottom:8 }} value={a.planificacion}
-                    onChange={e=>updateActividad(a.id,"planificacion",e.target.value)}>
-                    <option value="">— Planificación —</option>
-                    <option value="Luis Cortés">Luis Cortés</option>
-                    <option value="__manual__">Otro</option>
-                  </select>
-                  {a.planificacion==="__manual__" && (
-                    <input style={{ ...S.inputXS, marginBottom:8 }} placeholder="Nombre planificación"
-                      value={a.planificacionManual} onChange={e=>updateActividad(a.id,"planificacionManual",e.target.value)} />
-                  )}
-
-                  {/* ── TAREAS ── */}
-                  <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:5 }}>
-                    <span style={{ fontSize:9, fontWeight:700, letterSpacing:"0.08em", color:"#64748B" }}>TAREAS</span>
-                    <span style={{ fontSize:12, fontWeight:800, color:avanceColor }}>{avance}%</span>
-                  </div>
-                  <div style={{ background:"#E2E8F0", borderRadius:99, height:4, overflow:"hidden", marginBottom:6 }}>
-                    <div style={{ height:"100%", borderRadius:99, width:`${avance}%`, background:avanceColor, transition:"width 0.3s" }} />
-                  </div>
-
-                  {a.tareas.map((t) => (
-                    t.titulo ? (
-                      <div key={t.id} style={{ fontSize:9, fontWeight:800, letterSpacing:"0.06em", color:"#475569", background:"#E2E8F0", padding:"3px 7px", borderRadius:4, marginTop:6, marginBottom:2, textTransform:"uppercase" }}>
-                        {t.nombre}
-                      </div>
-                    ) : (
-                      <div key={t.id} style={{ display:"flex", alignItems:"center", gap:5, padding:"3px 0", borderBottom:"1px solid #F1F5F9" }}>
-                        <span style={{ flex:1, fontSize:11, color: t.estado==="noaplica"?"#CBD5E1":"#1E293B", lineHeight:1.3,
-                          textDecoration: t.estado==="noaplica"?"line-through":"none" }}>{t.nombre}</span>
-                        <div style={{ display:"flex", gap:2, flexShrink:0 }}>
-                          {[
-                            { val:"finalizado", label:"✓",   colorOn:"#10B981", bgOn:"#D1FAE5" },
-                            { val:"noaplica",   label:"—",   colorOn:"#94A3B8", bgOn:"#F1F5F9" },
-                            { val:"pendiente",  label:"!",   colorOn:"#F59E0B", bgOn:"#FEF3C7" },
-                          ].map(op=>(
-                            <button key={op.val} onClick={()=>updateTarea(a.id,t.id,"estado",op.val)} style={{
-                              width:22, height:22, borderRadius:4, border:"1.5px solid",
-                              fontSize:11, fontWeight:800, cursor:"pointer", lineHeight:1,
-                              background: t.estado===op.val?op.bgOn:"#F8FAFC",
-                              color: t.estado===op.val?op.colorOn:"#CBD5E1",
-                              borderColor: t.estado===op.val?op.colorOn:"#E2E8F0",
-                              display:"flex", alignItems:"center", justifyContent:"center",
-                            }}>{op.label}</button>
-                          ))}
-                        </div>
-                      </div>
-                    )
-                  ))}
-
-                  {/* Nota del pendiente — solo si hay alguna tarea pendiente */}
-                  {a.tareas.filter(t=>!t.titulo&&t.estado==="pendiente").map(t=>(
-                    t.notaPendiente!==undefined && (
-                      <div key={t.id+"nota"} style={{ display:"flex", alignItems:"center", gap:5, padding:"2px 0 3px" }}>
-                        <span style={{ fontSize:10, color:"#F59E0B", flexShrink:0 }}>!</span>
-                        <span style={{ fontSize:10, color:"#92400E", flex:1 }}>{t.nombre.slice(0,20)}…</span>
-                        <input style={{ ...S.inputXS, flex:2, fontSize:11 }}
-                          placeholder="Nota..."
-                          value={t.notaPendiente}
-                          onChange={e=>updateTarea(a.id,t.id,"notaPendiente",e.target.value)} />
-                      </div>
-                    )
-                  ))}
-
-                  {/* Observaciones */}
-                  <textarea style={{ ...S.inputXS, minHeight:44, resize:"vertical", fontFamily:"inherit", marginTop:8 }}
-                    placeholder="Observaciones..."
-                    value={a.observaciones}
-                    onChange={e=>updateActividad(a.id,"observaciones",e.target.value)} />
-
-                  {/* Fotos */}
-                  <input type="file" accept="image/*" capture="environment" multiple style={{ display:"none" }}
-                    ref={el=>cameraRefs.current[a.id]=el}
-                    onChange={e=>{ handleFotos(a.id,e.target.files); e.target.value=""; }} />
-                  <input type="file" accept="image/*" multiple style={{ display:"none" }}
-                    ref={el=>galleryRefs.current[a.id]=el}
-                    onChange={e=>{ handleFotos(a.id,e.target.files); e.target.value=""; }} />
-                  <div style={{ display:"flex", gap:6, marginTop:6 }}>
-                    <button style={{ flex:1, padding:"6px", border:"1.5px dashed #CBD5E1", borderRadius:6, background:"#F8FAFC", color:"#64748B", fontSize:12, cursor:"pointer" }}
-                      onClick={()=>cameraRefs.current[a.id]?.click()}>📷 Foto</button>
-                    <button style={{ flex:1, padding:"6px", border:"1.5px dashed #CBD5E1", borderRadius:6, background:"#F8FAFC", color:"#64748B", fontSize:12, cursor:"pointer" }}
-                      onClick={()=>galleryRefs.current[a.id]?.click()}>🖼️ Galería</button>
-                  </div>
-                  {a.fotos?.length>0 && (
-                    <div style={{ display:"flex", flexWrap:"wrap", gap:5, marginTop:6 }}>
-                      {a.fotos.map((f,fi)=>(
-                        <div key={fi} style={{ position:"relative", width:60, height:60 }}>
-                          <img src={f.dataUrl} alt={f.name} style={{ width:60, height:60, objectFit:"cover", borderRadius:6, border:"1px solid #E2E8F0" }} />
-                          <button onClick={()=>removeFoto(a.id,fi)} style={{ position:"absolute", top:-5, right:-5, background:"#EF4444", color:"#fff", border:"none", borderRadius:"50%", width:16, height:16, fontSize:9, fontWeight:700, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>✕</button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {actividades.length>1 && (
-                    <button style={{ width:"100%", marginTop:8, padding:"6px", background:"none", border:"1px solid #FCA5A5", color:"#EF4444", fontSize:12, fontWeight:600, cursor:"pointer", borderRadius:6 }}
-                      onClick={()=>removeActividad(a.id)}>✕ Eliminar actividad</button>
+                  {a.supervisor === "__manual__" && (
+                    <input style={{ ...S.input, marginTop: 6 }} placeholder="Nombre del supervisor"
+                      value={a.supervisorManual}
+                      onChange={e => updateActividad(a.id, "supervisorManual", e.target.value)} />
                   )}
                 </div>
-              )}
+              </div>
+
+              <div style={S.fieldGroup}>
+                <label style={S.label}>Planificación</label>
+                <select style={S.select} value={a.planificacion}
+                  onChange={e => updateActividad(a.id, "planificacion", e.target.value)}>
+                  <option value="">— Seleccionar —</option>
+                  <option value="Luis Cortés">Luis Cortés</option>
+                  <option value="__manual__">Otro (escribir)</option>
+                </select>
+                {a.planificacion === "__manual__" && (
+                  <input style={{ ...S.input, marginTop: 6 }} placeholder="Nombre"
+                    value={a.planificacionManual}
+                    onChange={e => updateActividad(a.id, "planificacionManual", e.target.value)} />
+                )}
+              </div>
+
+              <div style={S.divider} />
+
+              {/* TAREAS */}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                <div style={S.sectionLabel}>ACTIVIDADES DEL TURNO</div>
+                <div style={{
+                  fontSize: 14, fontWeight: 800,
+                  color: avance === 100 ? "#10B981" : avance >= 60 ? "#F59E0B" : "#64748B"
+                }}>
+                  {avance}%
+                </div>
+              </div>
+
+              <div style={{ background: "#E2E8F0", borderRadius: 99, height: 8, overflow: "hidden", marginBottom: 14 }}>
+                <div style={{
+                  height: "100%", borderRadius: 99, transition: "width 0.3s",
+                  width: `${avance}%`,
+                  background: avance === 100 ? "#10B981" : avance >= 60 ? "#F59E0B" : "#EF4444"
+                }} />
+              </div>
+
+              {a.tareas.map((t) => (
+                t.titulo ? (
+                  <div key={t.id} style={S.tareaHeader}>
+                    {t.nombre}
+                  </div>
+                ) : (
+                <div key={t.id} style={S.tareaItem}>
+                  <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
+                    <span style={{ flex: 1, fontSize: 13, color: "#1E293B", lineHeight: 1.5, paddingTop: 2 }}>{t.nombre}</span>
+                    <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
+                      {[
+                        { val: "finalizado", label: "✓", colorOn: "#10B981", bgOn: "#D1FAE5" },
+                        { val: "noaplica",   label: "N/A", colorOn: "#94A3B8", bgOn: "#F1F5F9" },
+                        { val: "pendiente",  label: "⏳", colorOn: "#F59E0B", bgOn: "#FEF3C7" },
+                      ].map(op => (
+                        <button key={op.val}
+                          style={{
+                            padding: "4px 8px", borderRadius: 6, border: "1.5px solid",
+                            fontSize: 11, fontWeight: 700, cursor: "pointer",
+                            background: t.estado === op.val ? op.bgOn : "#F8FAFC",
+                            color: t.estado === op.val ? op.colorOn : "#CBD5E1",
+                            borderColor: t.estado === op.val ? op.colorOn : "#E2E8F0",
+                          }}
+                          onClick={() => updateTarea(a.id, t.id, "estado", op.val)}>
+                          {op.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  {t.estado === "pendiente" && (
+                    <input style={{ ...S.input, marginTop: 6, fontSize: 13 }}
+                      placeholder="Detalle del pendiente..."
+                      value={t.notaPendiente}
+                      onChange={e => updateTarea(a.id, t.id, "notaPendiente", e.target.value)} />
+                  )}
+                </div>
+                )
+              ))}
+
+              <div style={S.divider} />
+
+              <div style={S.fieldGroup}>
+                <label style={S.label}>Observaciones</label>
+                <textarea style={S.textarea} placeholder="Notas adicionales, alertas..."
+                  value={a.observaciones}
+                  onChange={e => updateActividad(a.id, "observaciones", e.target.value)} />
+              </div>
+
+              <div style={S.fieldGroup}>
+                <label style={S.label}>📷 Fotos evidencia</label>
+                <input type="file" accept="image/*" capture="environment" multiple style={{ display: "none" }}
+                  ref={el => cameraRefs.current[a.id] = el}
+                  onChange={e => { handleFotos(a.id, e.target.files); e.target.value = ""; }} />
+                <input type="file" accept="image/*" multiple style={{ display: "none" }}
+                  ref={el => galleryRefs.current[a.id] = el}
+                  onChange={e => { handleFotos(a.id, e.target.files); e.target.value = ""; }} />
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button style={{ ...S.fotoBtn, flex: 1 }} onClick={() => cameraRefs.current[a.id]?.click()}>📷 Tomar foto</button>
+                  <button style={{ ...S.fotoBtn, flex: 1 }} onClick={() => galleryRefs.current[a.id]?.click()}>🖼️ Galería</button>
+                </div>
+                {a.fotos?.length > 0 && (
+                  <div style={S.fotoGrid}>
+                    {a.fotos.map((f, fi) => (
+                      <div key={fi} style={S.fotoThumbWrap}>
+                        <img src={f.dataUrl} alt={f.name} style={S.fotoThumb} />
+                        <button style={S.fotoRemove} onClick={() => removeFoto(a.id, fi)}>✕</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           );
         })}
@@ -743,27 +757,27 @@ export default function ReporteTurno() {
 }
 
 const S = {
-  root: { minHeight: "100vh", background: "#F8FAFC", fontFamily: "'Segoe UI', system-ui, sans-serif", paddingBottom: 32 },
-  container: { maxWidth: 680, margin: "0 auto", padding: "0 10px" },
-  topBar: { background: "#1E293B", margin: "0 -10px 14px", padding: "12px 14px" },
-  topBarTitle: { color: "#F1F5F9", fontWeight: 700, fontSize: 16, letterSpacing: "-0.3px" },
-  topBarSub: { color: "#94A3B8", fontSize: 12, marginTop: 1 },
-  clearBtn: { background: "none", border: "1px solid #475569", color: "#94A3B8", borderRadius: 7, padding: "5px 10px", fontSize: 13, cursor: "pointer" },
-  section: { background: "#fff", borderRadius: 10, padding: "14px 12px", marginBottom: 12, border: "1px solid #E2E8F0", boxShadow: "0 1px 3px rgba(0,0,0,0.04)" },
-  sectionLabel: { fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", color: "#64748B", marginBottom: 8 },
-  divider: { height: 1, background: "#E2E8F0", margin: "10px 0 12px" },
-  row2: { display: "flex", gap: 8 },
-  fieldGroup: { flex: 1, marginBottom: 10 },
-  label: { display: "block", fontSize: 12, fontWeight: 600, color: "#374151", marginBottom: 4 },
-  input: { width: "100%", padding: "8px 10px", border: "1.5px solid #E2E8F0", borderRadius: 7, fontSize: 14, color: "#1E293B", background: "#F8FAFC", boxSizing: "border-box", outline: "none" },
-  textarea: { width: "100%", padding: "8px 10px", border: "1.5px solid #E2E8F0", borderRadius: 7, fontSize: 14, color: "#1E293B", background: "#F8FAFC", boxSizing: "border-box", minHeight: 60, resize: "vertical", outline: "none", fontFamily: "inherit" },
-  select: { width: "100%", padding: "8px 10px", border: "1.5px solid #E2E8F0", borderRadius: 7, fontSize: 14, color: "#1E293B", background: "#F8FAFC", boxSizing: "border-box" },
-  actCardNum: { background: "#1E293B", color: "#fff", borderRadius: 5, width: 24, height: 24, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, flexShrink: 0 },
-  removeBtn: { background: "none", border: "1px solid #FCA5A5", color: "#EF4444", fontSize: 12, fontWeight: 600, cursor: "pointer", padding: "3px 8px", borderRadius: 6 },
-  tareaItem: { marginBottom: 4, padding: "6px 8px", background: "#FAFAFA", borderRadius: 7, border: "1px solid #F1F5F9" },
-  tareaHeader: { fontSize: 10, fontWeight: 800, letterSpacing: "0.06em", color: "#1E293B", background: "#E2E8F0", padding: "5px 8px", borderRadius: 5, marginBottom: 4, marginTop: 8, textTransform: "uppercase" },
-  addBtn: { width: "100%", padding: "11px", border: "2px dashed #CBD5E1", borderRadius: 9, background: "none", color: "#475569", fontSize: 13, fontWeight: 600, cursor: "pointer", marginBottom: 10 },
-  btnPrimary: { width: "100%", padding: "13px", background: "#1E293B", color: "#fff", border: "none", borderRadius: 9, fontSize: 15, fontWeight: 700, cursor: "pointer", letterSpacing: "-0.2px" },
+  root: { minHeight: "100vh", background: "#F8FAFC", fontFamily: "'Segoe UI', system-ui, sans-serif", paddingBottom: 40 },
+  container: { maxWidth: 680, margin: "0 auto", padding: "0 16px" },
+  topBar: { background: "#1E293B", margin: "0 -16px 24px", padding: "18px 20px" },
+  topBarTitle: { color: "#F1F5F9", fontWeight: 700, fontSize: 18, letterSpacing: "-0.3px" },
+  topBarSub: { color: "#94A3B8", fontSize: 13, marginTop: 1 },
+  clearBtn: { background: "none", border: "1px solid #475569", color: "#94A3B8", borderRadius: 8, padding: "6px 12px", fontSize: 13, cursor: "pointer" },
+  section: { background: "#fff", borderRadius: 12, padding: "20px 18px", marginBottom: 16, border: "1px solid #E2E8F0", boxShadow: "0 1px 3px rgba(0,0,0,0.04)" },
+  sectionLabel: { fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", color: "#64748B", marginBottom: 12 },
+  divider: { height: 1, background: "#E2E8F0", margin: "16px 0 18px" },
+  row2: { display: "flex", gap: 12 },
+  fieldGroup: { flex: 1, marginBottom: 14 },
+  label: { display: "block", fontSize: 13, fontWeight: 600, color: "#374151", marginBottom: 5 },
+  input: { width: "100%", padding: "9px 12px", border: "1.5px solid #E2E8F0", borderRadius: 8, fontSize: 14, color: "#1E293B", background: "#F8FAFC", boxSizing: "border-box", outline: "none" },
+  textarea: { width: "100%", padding: "9px 12px", border: "1.5px solid #E2E8F0", borderRadius: 8, fontSize: 14, color: "#1E293B", background: "#F8FAFC", boxSizing: "border-box", minHeight: 72, resize: "vertical", outline: "none", fontFamily: "inherit" },
+  select: { width: "100%", padding: "9px 12px", border: "1.5px solid #E2E8F0", borderRadius: 8, fontSize: 14, color: "#1E293B", background: "#F8FAFC", boxSizing: "border-box" },
+  actCardNum: { background: "#1E293B", color: "#fff", borderRadius: 6, width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, flexShrink: 0 },
+  removeBtn: { background: "none", border: "1px solid #FCA5A5", color: "#EF4444", fontSize: 13, fontWeight: 600, cursor: "pointer", padding: "4px 10px", borderRadius: 6 },
+  tareaItem: { marginBottom: 6, padding: "8px 10px", background: "#FAFAFA", borderRadius: 8, border: "1px solid #F1F5F9" },
+  tareaHeader: { fontSize: 11, fontWeight: 800, letterSpacing: "0.06em", color: "#1E293B", background: "#E2E8F0", padding: "6px 10px", borderRadius: 6, marginBottom: 6, marginTop: 10, textTransform: "uppercase" },
+  addBtn: { width: "100%", padding: "13px", border: "2px dashed #CBD5E1", borderRadius: 10, background: "none", color: "#475569", fontSize: 14, fontWeight: 600, cursor: "pointer", marginBottom: 12 },
+  btnPrimary: { width: "100%", padding: "14px", background: "#1E293B", color: "#fff", border: "none", borderRadius: 10, fontSize: 15, fontWeight: 700, cursor: "pointer", letterSpacing: "-0.2px" },
   shareBar: { display: "flex", gap: 8, margin: "16px 0 20px" },
   shareBtn: { flex: 1, padding: "11px 12px", border: "1.5px solid #E2E8F0", borderRadius: 8, background: "#fff", color: "#1E293B", fontSize: 14, fontWeight: 600, cursor: "pointer" },
   previewCard: { background: "#fff", border: "1px solid #E2E8F0", borderRadius: 12, marginBottom: 20, overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,0.04)" },
