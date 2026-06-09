@@ -155,6 +155,7 @@ const STORAGE_KEY = "reporte_turno_data";
 
 export default function ReporteTurno() {
   const [step, setStep] = useState("form");
+  const [actividadAbierta, setActividadAbierta] = useState(null);
   const [actividades, setActividades] = useState(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
@@ -174,8 +175,22 @@ export default function ReporteTurno() {
     } catch {}
   }, [actividades]);
 
-  const addActividad = () => setActividades((p) => [...p, defaultActividad()]);
+  const addActividad = () => {
+    const nueva = defaultActividad();
+    setActividades((p) => [...p, nueva]);
+    setActividadAbierta(nueva.id);
+  };
   const removeActividad = (id) => setActividades((p) => p.filter((a) => a.id !== id));
+  const moverActividad = (id, dir) => {
+    setActividades((p) => {
+      const idx = p.findIndex((a) => a.id === id);
+      const newIdx = idx + dir;
+      if (newIdx < 0 || newIdx >= p.length) return p;
+      const arr = [...p];
+      [arr[idx], arr[newIdx]] = [arr[newIdx], arr[idx]];
+      return arr;
+    });
+  };
   const updateActividad = (id, field, value) =>
     setActividades((p) => p.map((a) => (a.id === id ? { ...a, [field]: value } : a)));
 
@@ -293,7 +308,7 @@ export default function ReporteTurno() {
               <div style="font-size:8px;font-weight:700;color:${color};margin-bottom:3px;">${titulo}</div>
               <div style="${resaltar ? "background:#FFFBEB;border:1px solid #FCD34D;border-radius:6px;padding:5px 7px;" : ""}display:grid;grid-template-columns:1fr 1fr 1fr;gap:1px 8px;">
                 ${lista.map((t) => `
-                  <div style="font-size:${resaltar ? "10px" : "9px"};font-weight:${resaltar ? "600" : "400"};color:${resaltar ? "#92400E" : "#1E293B"};padding:${resaltar ? "2px 0" : "1px 0"};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+                  <div style="font-size:${resaltar ? "10px" : "9px"};font-weight:${resaltar ? "600" : "400"};color:${resaltar ? "#92400E" : "#1E293B"};padding:${resaltar ? "2px 0" : "1px 0"};word-break:break-word;white-space:normal;">
                     ${resaltar ? "⚠️" : "·"} ${t.nombre}${t.notaPendiente ? ` <span style="color:#B45309;font-style:italic;">— ${t.notaPendiente}</span>` : ""}
                   </div>`).join("")}
               </div>
@@ -305,7 +320,7 @@ export default function ReporteTurno() {
               <div style="font-size:8px;font-weight:700;color:#64748B;margin-bottom:3px;">🕐 PENDIENTE</div>
               <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1px 8px;">
                 ${lista.map((t) => `
-                  <div style="font-size:9px;color:#64748B;padding:1px 0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+                  <div style="font-size:9px;color:#64748B;padding:1px 0;word-break:break-word;white-space:normal;">
                     · ${t.nombre}
                   </div>`).join("")}
               </div>
@@ -517,17 +532,42 @@ export default function ReporteTurno() {
 
         {actividades.map((a, i) => {
           const avance = calcAvance(a.tareas);
+          const abierta = actividadAbierta === a.id;
+          const clienteLabel = a.cliente === "__manual__" ? a.clienteManual : a.cliente;
+          const nroLinea = a.nroLinea ? ` N°${a.nroLinea}` : "";
+          const lineaColor = a.linea === "Ensamble" ? "#0EA5E9" : "#8B5CF6";
+          const avanceColor = avance === 100 ? "#10B981" : avance >= 60 ? "#F59E0B" : "#EF4444";
           return (
-            <div key={a.id} style={S.section}>
-              {/* Título */}
-              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
-                <div style={S.actCardNum}>#{i + 1}</div>
-                <div style={{ flex: 1, fontWeight: 700, fontSize: 15, color: "#1E293B" }}>Actividad {i + 1}</div>
-                {actividades.length > 1 && (
-                  <button style={S.removeBtn} onClick={() => removeActividad(a.id)}>✕ Eliminar</button>
-                )}
+            <div key={a.id} style={{ background:"#fff", borderRadius:10, marginBottom:6, border:"1px solid #E2E8F0", overflow:"hidden" }}>
+
+              {/* ── CABECERA ── */}
+              <div style={{ display:"flex", alignItems:"stretch" }}>
+                <div style={{ display:"flex", flexDirection:"column", borderRight:"1px solid #E2E8F0", flexShrink:0 }}>
+                  <button disabled={i===0} onClick={()=>moverActividad(a.id,-1)} style={{ flex:1, width:28, border:"none", background:"transparent", cursor:i===0?"default":"pointer", color:i===0?"#CBD5E1":"#64748B", fontSize:13, borderBottom:"1px solid #E2E8F0" }}>▲</button>
+                  <button disabled={i===actividades.length-1} onClick={()=>moverActividad(a.id,1)} style={{ flex:1, width:28, border:"none", background:"transparent", cursor:i===actividades.length-1?"default":"pointer", color:i===actividades.length-1?"#CBD5E1":"#64748B", fontSize:13 }}>▼</button>
+                </div>
+                <div onClick={()=>setActividadAbierta(abierta?null:a.id)} style={{ flex:1, display:"flex", alignItems:"center", gap:8, padding:"9px 11px", cursor:"pointer", background:abierta?"#F1F5F9":"#fff", userSelect:"none", minWidth:0 }}>
+                  <div style={{ background:abierta?"#1E293B":"#E2E8F0", color:abierta?"#fff":"#64748B", borderRadius:5, width:22, height:22, flexShrink:0, display:"flex", alignItems:"center", justifyContent:"center", fontSize:11, fontWeight:700 }}>{i+1}</div>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ display:"flex", alignItems:"center", gap:4, flexWrap:"wrap" }}>
+                      <span style={{ fontSize:10, fontWeight:700, color:"#fff", background:lineaColor, borderRadius:4, padding:"1px 6px", flexShrink:0 }}>{a.linea}{nroLinea}</span>
+                      {a.ran && <span style={{ fontSize:12, fontWeight:700, color:"#1E293B" }}>RAN {a.ran}</span>}
+                      {a.unidad && <span style={{ fontSize:11, color:"#64748B" }}>· {a.unidad}</span>}
+                    </div>
+                    {clienteLabel && <div style={{ fontSize:10, color:"#94A3B8", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{clienteLabel}</div>}
+                  </div>
+                  <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:2, flexShrink:0 }}>
+                    <span style={{ fontSize:11, fontWeight:800, color:avanceColor }}>{avance}%</span>
+                    <div style={{ width:44, background:"#E2E8F0", borderRadius:99, height:3, overflow:"hidden" }}>
+                      <div style={{ height:"100%", borderRadius:99, width:`${avance}%`, background:avanceColor }} />
+                    </div>
+                  </div>
+                  <div style={{ fontSize:10, color:"#94A3B8", flexShrink:0, transform:abierta?"rotate(180deg)":"none", transition:"transform 0.2s" }}>▼</div>
+                </div>
               </div>
 
+              {/* ── CUERPO ── */}
+              {abierta && (<div style={{ padding:"12px 11px", borderTop:"1px solid #E2E8F0" }}>
               <div style={S.sectionLabel}>ENCABEZADO</div>
 
               {/* Fecha sola */}
@@ -742,7 +782,11 @@ export default function ReporteTurno() {
                     ))}
                   </div>
                 )}
-              </div>
+                {actividades.length > 1 && (
+                  <button style={{ width:"100%", marginTop:6, padding:"8px", background:"none", border:"1px solid #FCA5A5", color:"#EF4444", fontSize:12, fontWeight:600, cursor:"pointer", borderRadius:6 }}
+                    onClick={()=>removeActividad(a.id)}>✕ Eliminar esta actividad</button>
+                )}
+              </div>)}
             </div>
           );
         })}
