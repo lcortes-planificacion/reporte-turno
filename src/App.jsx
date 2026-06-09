@@ -291,10 +291,10 @@ export default function ReporteTurno() {
         lista.length
           ? `<div style="margin-bottom:7px;">
               <div style="font-size:8px;font-weight:700;color:${color};margin-bottom:3px;">${titulo}</div>
-              <div style="${resaltar ? "background:#FFFBEB;border:1px solid #FCD34D;border-radius:6px;padding:5px 7px;" : ""}display:grid;grid-template-columns:1fr 1fr 1fr;gap:1px 8px;">
+              <div style="${resaltar ? "background:#FFFBEB;border:1px solid #FCD34D;border-radius:6px;padding:5px 7px;" : ""}display:grid;grid-template-columns:1fr 1fr 1fr;gap:2px 8px;">
                 ${lista.map((t) => `
-                  <div style="font-size:${resaltar ? "10px" : "9px"};font-weight:${resaltar ? "600" : "400"};color:${resaltar ? "#92400E" : "#1E293B"};padding:${resaltar ? "2px 0" : "1px 0"};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
-                    ${resaltar ? "⚠️" : "·"} ${t.nombre}${t.notaPendiente ? ` <span style="color:#B45309;font-style:italic;">— ${t.notaPendiente}</span>` : ""}
+                  <div style="font-size:${resaltar ? "10px" : "9px"};font-weight:${resaltar ? "600" : "400"};color:${resaltar ? "#92400E" : "#1E293B"};padding:${resaltar ? "2px 0" : "1px 0"};word-break:break-word;overflow-wrap:break-word;white-space:normal;">
+                    ${resaltar ? "⚠️" : "·"} ${t.nombre}${t.notaPendiente ? `<br><span style="color:#B45309;font-style:italic;font-size:9px;">↳ ${t.notaPendiente}</span>` : ""}
                   </div>`).join("")}
               </div>
             </div>` : "";
@@ -303,9 +303,9 @@ export default function ReporteTurno() {
         lista.length
           ? `<div style="margin-bottom:7px;">
               <div style="font-size:8px;font-weight:700;color:#64748B;margin-bottom:3px;">🕐 PENDIENTE</div>
-              <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1px 8px;">
+              <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:2px 8px;">
                 ${lista.map((t) => `
-                  <div style="font-size:9px;color:#64748B;padding:1px 0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+                  <div style="font-size:9px;color:#64748B;padding:1px 0;word-break:break-word;overflow-wrap:break-word;white-space:normal;">
                     · ${t.nombre}
                   </div>`).join("")}
               </div>
@@ -520,9 +520,9 @@ export default function ReporteTurno() {
           return (
             <div key={a.id} style={S.section}>
               {/* Título */}
-              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
                 <div style={S.actCardNum}>#{i + 1}</div>
-                <div style={{ flex: 1, fontWeight: 700, fontSize: 15, color: "#1E293B" }}>Actividad {i + 1}</div>
+                <div style={{ flex: 1, fontWeight: 700, fontSize: 14, color: "#1E293B" }}>Actividad {i + 1}</div>
                 {actividades.length > 1 && (
                   <button style={S.removeBtn} onClick={() => removeActividad(a.id)}>✕ Eliminar</button>
                 )}
@@ -545,7 +545,7 @@ export default function ReporteTurno() {
                     {LINEAS.map(l => (
                       <button key={l}
                         style={{
-                          flex: 1, padding: "9px 4px", border: "1.5px solid #E2E8F0", borderRadius: 8,
+                          flex: 1, padding: "8px 4px", border: "1.5px solid #E2E8F0", borderRadius: 7,
                           fontSize: 12, fontWeight: 700, cursor: "pointer",
                           background: a.linea === l ? (l === "Ensamble" ? "#0EA5E9" : "#8B5CF6") : "#F8FAFC",
                           color: a.linea === l ? "#fff" : "#64748B",
@@ -563,7 +563,7 @@ export default function ReporteTurno() {
                     {TURNOS.map(t => (
                       <button key={t}
                         style={{
-                          flex: 1, padding: "9px 4px", border: "1.5px solid #E2E8F0", borderRadius: 8,
+                          flex: 1, padding: "8px 4px", border: "1.5px solid #E2E8F0", borderRadius: 7,
                           fontSize: 13, fontWeight: 700, cursor: "pointer",
                           background: a.turno === t ? "#1E293B" : "#F8FAFC",
                           color: a.turno === t ? "#fff" : "#64748B",
@@ -654,17 +654,17 @@ export default function ReporteTurno() {
               <div style={S.divider} />
 
               {/* TAREAS */}
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
                 <div style={S.sectionLabel}>ACTIVIDADES DEL TURNO</div>
                 <div style={{
-                  fontSize: 14, fontWeight: 800,
+                  fontSize: 13, fontWeight: 800,
                   color: avance === 100 ? "#10B981" : avance >= 60 ? "#F59E0B" : "#64748B"
                 }}>
                   {avance}%
                 </div>
               </div>
 
-              <div style={{ background: "#E2E8F0", borderRadius: 99, height: 8, overflow: "hidden", marginBottom: 14 }}>
+              <div style={{ background: "#E2E8F0", borderRadius: 99, height: 6, overflow: "hidden", marginBottom: 10 }}>
                 <div style={{
                   height: "100%", borderRadius: 99, transition: "width 0.3s",
                   width: `${avance}%`,
@@ -679,9 +679,9 @@ export default function ReporteTurno() {
                   </div>
                 ) : (
                 <div key={t.id} style={S.tareaItem}>
-                  <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
-                    <span style={{ flex: 1, fontSize: 13, color: "#1E293B", lineHeight: 1.5, paddingTop: 2 }}>{t.nombre}</span>
-                    <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <span style={{ flex: 1, fontSize: 12, color: "#1E293B", lineHeight: 1.4 }}>{t.nombre}</span>
+                    <div style={{ display: "flex", gap: 3, flexShrink: 0 }}>
                       {[
                         { val: "finalizado", label: "✓", colorOn: "#10B981", bgOn: "#D1FAE5" },
                         { val: "noaplica",   label: "N/A", colorOn: "#94A3B8", bgOn: "#F1F5F9" },
@@ -689,8 +689,8 @@ export default function ReporteTurno() {
                       ].map(op => (
                         <button key={op.val}
                           style={{
-                            padding: "4px 8px", borderRadius: 6, border: "1.5px solid",
-                            fontSize: 11, fontWeight: 700, cursor: "pointer",
+                            padding: "3px 6px", borderRadius: 5, border: "1.5px solid",
+                            fontSize: 10, fontWeight: 700, cursor: "pointer", lineHeight: 1.4,
                             background: t.estado === op.val ? op.bgOn : "#F8FAFC",
                             color: t.estado === op.val ? op.colorOn : "#CBD5E1",
                             borderColor: t.estado === op.val ? op.colorOn : "#E2E8F0",
@@ -702,7 +702,7 @@ export default function ReporteTurno() {
                     </div>
                   </div>
                   {t.estado === "pendiente" && (
-                    <input style={{ ...S.input, marginTop: 6, fontSize: 13 }}
+                    <input style={{ ...S.input, marginTop: 5, fontSize: 12, padding: "6px 9px" }}
                       placeholder="Detalle del pendiente..."
                       value={t.notaPendiente}
                       onChange={e => updateTarea(a.id, t.id, "notaPendiente", e.target.value)} />
@@ -757,27 +757,27 @@ export default function ReporteTurno() {
 }
 
 const S = {
-  root: { minHeight: "100vh", background: "#F8FAFC", fontFamily: "'Segoe UI', system-ui, sans-serif", paddingBottom: 40 },
-  container: { maxWidth: 680, margin: "0 auto", padding: "0 16px" },
-  topBar: { background: "#1E293B", margin: "0 -16px 24px", padding: "18px 20px" },
-  topBarTitle: { color: "#F1F5F9", fontWeight: 700, fontSize: 18, letterSpacing: "-0.3px" },
-  topBarSub: { color: "#94A3B8", fontSize: 13, marginTop: 1 },
-  clearBtn: { background: "none", border: "1px solid #475569", color: "#94A3B8", borderRadius: 8, padding: "6px 12px", fontSize: 13, cursor: "pointer" },
-  section: { background: "#fff", borderRadius: 12, padding: "20px 18px", marginBottom: 16, border: "1px solid #E2E8F0", boxShadow: "0 1px 3px rgba(0,0,0,0.04)" },
-  sectionLabel: { fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", color: "#64748B", marginBottom: 12 },
-  divider: { height: 1, background: "#E2E8F0", margin: "16px 0 18px" },
-  row2: { display: "flex", gap: 12 },
-  fieldGroup: { flex: 1, marginBottom: 14 },
-  label: { display: "block", fontSize: 13, fontWeight: 600, color: "#374151", marginBottom: 5 },
-  input: { width: "100%", padding: "9px 12px", border: "1.5px solid #E2E8F0", borderRadius: 8, fontSize: 14, color: "#1E293B", background: "#F8FAFC", boxSizing: "border-box", outline: "none" },
-  textarea: { width: "100%", padding: "9px 12px", border: "1.5px solid #E2E8F0", borderRadius: 8, fontSize: 14, color: "#1E293B", background: "#F8FAFC", boxSizing: "border-box", minHeight: 72, resize: "vertical", outline: "none", fontFamily: "inherit" },
-  select: { width: "100%", padding: "9px 12px", border: "1.5px solid #E2E8F0", borderRadius: 8, fontSize: 14, color: "#1E293B", background: "#F8FAFC", boxSizing: "border-box" },
-  actCardNum: { background: "#1E293B", color: "#fff", borderRadius: 6, width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, flexShrink: 0 },
-  removeBtn: { background: "none", border: "1px solid #FCA5A5", color: "#EF4444", fontSize: 13, fontWeight: 600, cursor: "pointer", padding: "4px 10px", borderRadius: 6 },
-  tareaItem: { marginBottom: 6, padding: "8px 10px", background: "#FAFAFA", borderRadius: 8, border: "1px solid #F1F5F9" },
-  tareaHeader: { fontSize: 11, fontWeight: 800, letterSpacing: "0.06em", color: "#1E293B", background: "#E2E8F0", padding: "6px 10px", borderRadius: 6, marginBottom: 6, marginTop: 10, textTransform: "uppercase" },
-  addBtn: { width: "100%", padding: "13px", border: "2px dashed #CBD5E1", borderRadius: 10, background: "none", color: "#475569", fontSize: 14, fontWeight: 600, cursor: "pointer", marginBottom: 12 },
-  btnPrimary: { width: "100%", padding: "14px", background: "#1E293B", color: "#fff", border: "none", borderRadius: 10, fontSize: 15, fontWeight: 700, cursor: "pointer", letterSpacing: "-0.2px" },
+  root: { minHeight: "100vh", background: "#F8FAFC", fontFamily: "'Segoe UI', system-ui, sans-serif", paddingBottom: 32 },
+  container: { maxWidth: 680, margin: "0 auto", padding: "0 10px" },
+  topBar: { background: "#1E293B", margin: "0 -10px 14px", padding: "12px 14px" },
+  topBarTitle: { color: "#F1F5F9", fontWeight: 700, fontSize: 16, letterSpacing: "-0.3px" },
+  topBarSub: { color: "#94A3B8", fontSize: 12, marginTop: 1 },
+  clearBtn: { background: "none", border: "1px solid #475569", color: "#94A3B8", borderRadius: 7, padding: "5px 10px", fontSize: 13, cursor: "pointer" },
+  section: { background: "#fff", borderRadius: 10, padding: "14px 12px", marginBottom: 12, border: "1px solid #E2E8F0", boxShadow: "0 1px 3px rgba(0,0,0,0.04)" },
+  sectionLabel: { fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", color: "#64748B", marginBottom: 8 },
+  divider: { height: 1, background: "#E2E8F0", margin: "10px 0 12px" },
+  row2: { display: "flex", gap: 8 },
+  fieldGroup: { flex: 1, marginBottom: 10 },
+  label: { display: "block", fontSize: 12, fontWeight: 600, color: "#374151", marginBottom: 4 },
+  input: { width: "100%", padding: "8px 10px", border: "1.5px solid #E2E8F0", borderRadius: 7, fontSize: 14, color: "#1E293B", background: "#F8FAFC", boxSizing: "border-box", outline: "none" },
+  textarea: { width: "100%", padding: "8px 10px", border: "1.5px solid #E2E8F0", borderRadius: 7, fontSize: 14, color: "#1E293B", background: "#F8FAFC", boxSizing: "border-box", minHeight: 60, resize: "vertical", outline: "none", fontFamily: "inherit" },
+  select: { width: "100%", padding: "8px 10px", border: "1.5px solid #E2E8F0", borderRadius: 7, fontSize: 14, color: "#1E293B", background: "#F8FAFC", boxSizing: "border-box" },
+  actCardNum: { background: "#1E293B", color: "#fff", borderRadius: 5, width: 24, height: 24, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, flexShrink: 0 },
+  removeBtn: { background: "none", border: "1px solid #FCA5A5", color: "#EF4444", fontSize: 12, fontWeight: 600, cursor: "pointer", padding: "3px 8px", borderRadius: 6 },
+  tareaItem: { marginBottom: 4, padding: "6px 8px", background: "#FAFAFA", borderRadius: 7, border: "1px solid #F1F5F9" },
+  tareaHeader: { fontSize: 10, fontWeight: 800, letterSpacing: "0.06em", color: "#1E293B", background: "#E2E8F0", padding: "5px 8px", borderRadius: 5, marginBottom: 4, marginTop: 8, textTransform: "uppercase" },
+  addBtn: { width: "100%", padding: "11px", border: "2px dashed #CBD5E1", borderRadius: 9, background: "none", color: "#475569", fontSize: 13, fontWeight: 600, cursor: "pointer", marginBottom: 10 },
+  btnPrimary: { width: "100%", padding: "13px", background: "#1E293B", color: "#fff", border: "none", borderRadius: 9, fontSize: 15, fontWeight: 700, cursor: "pointer", letterSpacing: "-0.2px" },
   shareBar: { display: "flex", gap: 8, margin: "16px 0 20px" },
   shareBtn: { flex: 1, padding: "11px 12px", border: "1.5px solid #E2E8F0", borderRadius: 8, background: "#fff", color: "#1E293B", fontSize: 14, fontWeight: 600, cursor: "pointer" },
   previewCard: { background: "#fff", border: "1px solid #E2E8F0", borderRadius: 12, marginBottom: 20, overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,0.04)" },
