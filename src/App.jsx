@@ -786,6 +786,7 @@ export default function ReporteTurno() {
                   <button style={{ width:"100%", marginTop:6, padding:"8px", background:"none", border:"1px solid #FCA5A5", color:"#EF4444", fontSize:12, fontWeight:600, cursor:"pointer", borderRadius:6 }}
                     onClick={()=>removeActividad(a.id)}>✕ Eliminar esta actividad</button>
                 )}
+              </div>
               </div>)}
             </div>
           );
