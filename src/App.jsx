@@ -117,7 +117,7 @@ const makeTareas = (linea) =>
     id: Math.random(),
     nombre: item.nombre,
     titulo: item.titulo,
-    estado: "pendiente",
+    estado: "",
     notaPendiente: "",
   }));
 
@@ -156,10 +156,20 @@ const STORAGE_KEY = "reporte_turno_data";
 export default function ReporteTurno() {
   const [step, setStep] = useState("form");
   const [actividadAbierta, setActividadAbierta] = useState(null);
+  const [seccionesColapsadas, setSeccionesColapsadas] = useState({});
   const [actividades, setActividades] = useState(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
-      return saved ? JSON.parse(saved) : [defaultActividad()];
+      if (!saved) return [defaultActividad()];
+      const data = JSON.parse(saved);
+      // Migrar: si estado es "pendiente" y no tiene nota, resetear a ""
+      return data.map(a => ({
+        ...a,
+        tareas: a.tareas.map(t => ({
+          ...t,
+          estado: t.estado === "pendiente" && !t.notaPendiente ? "" : t.estado
+        }))
+      }));
     } catch {
       return [defaultActividad()];
     }
@@ -174,6 +184,11 @@ export default function ReporteTurno() {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(sinFotos));
     } catch {}
   }, [actividades]);
+
+  const toggleSeccion = (actId, secNombre) => {
+    const key = actId + ":" + secNombre;
+    setSeccionesColapsadas(prev => ({ ...prev, [key]: !prev[key] }));
+  };
 
   const addActividad = () => {
     const nueva = defaultActividad();
@@ -570,126 +585,107 @@ export default function ReporteTurno() {
               {abierta && (<div style={{ padding:"12px 11px", borderTop:"1px solid #E2E8F0" }}>
               <div style={S.sectionLabel}>ENCABEZADO</div>
 
-              {/* Fecha sola */}
-              <div style={S.fieldGroup}>
-                <label style={S.label}>Fecha</label>
-                <input type="date" style={S.input} value={a.fecha}
-                  onChange={e => updateActividad(a.id, "fecha", e.target.value)} />
-              </div>
-
-              {/* Línea + Turno */}
-              <div style={S.row2}>
-                <div style={S.fieldGroup}>
+              {/* Fila 1: Fecha + Línea + Turno + N°Línea */}
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr 56px", gap:6, marginBottom:6 }}>
+                <div style={{ display:"flex", flexDirection:"column" }}>
+                  <label style={S.label}>Fecha</label>
+                  <input type="date" style={{ ...S.input, flex:1 }} value={a.fecha}
+                    onChange={e => updateActividad(a.id,"fecha",e.target.value)} />
+                </div>
+                <div style={{ display:"flex", flexDirection:"column" }}>
                   <label style={S.label}>Línea</label>
-                  <div style={{ display: "flex", gap: 6 }}>
+                  <div style={{ display:"flex", gap:4, flex:1 }}>
                     {LINEAS.map(l => (
-                      <button key={l}
-                        style={{
-                          flex: 1, padding: "9px 4px", border: "1.5px solid #E2E8F0", borderRadius: 8,
-                          fontSize: 12, fontWeight: 700, cursor: "pointer",
-                          background: a.linea === l ? (l === "Ensamble" ? "#0EA5E9" : "#8B5CF6") : "#F8FAFC",
-                          color: a.linea === l ? "#fff" : "#64748B",
-                          borderColor: a.linea === l ? (l === "Ensamble" ? "#0EA5E9" : "#8B5CF6") : "#E2E8F0",
-                        }}
-                        onClick={() => cambiarLinea(a.id, l)}>
-                        {l}
-                      </button>
+                      <button key={l} onClick={() => cambiarLinea(a.id,l)} style={{
+                        flex:1, border:"1.5px solid", borderRadius:7, fontSize:11, fontWeight:700, cursor:"pointer",
+                        background: a.linea===l?(l==="Ensamble"?"#0EA5E9":"#8B5CF6"):"#F8FAFC",
+                        color: a.linea===l?"#fff":"#64748B",
+                        borderColor: a.linea===l?(l==="Ensamble"?"#0EA5E9":"#8B5CF6"):"#E2E8F0",
+                      }}>{l==="Ensamble"?"Ens.":"Des."}</button>
                     ))}
                   </div>
                 </div>
-                <div style={S.fieldGroup}>
+                <div style={{ display:"flex", flexDirection:"column" }}>
                   <label style={S.label}>Turno</label>
-                  <div style={{ display: "flex", gap: 6 }}>
+                  <div style={{ display:"flex", gap:4, flex:1 }}>
                     {TURNOS.map(t => (
-                      <button key={t}
-                        style={{
-                          flex: 1, padding: "9px 4px", border: "1.5px solid #E2E8F0", borderRadius: 8,
-                          fontSize: 13, fontWeight: 700, cursor: "pointer",
-                          background: a.turno === t ? "#1E293B" : "#F8FAFC",
-                          color: a.turno === t ? "#fff" : "#64748B",
-                          borderColor: a.turno === t ? "#1E293B" : "#E2E8F0",
-                        }}
-                        onClick={() => updateActividad(a.id, "turno", t)}>
-                        {t}
-                      </button>
+                      <button key={t} onClick={() => updateActividad(a.id,"turno",t)} style={{
+                        flex:1, border:"1.5px solid", borderRadius:7, fontSize:12, fontWeight:700, cursor:"pointer",
+                        background: a.turno===t?"#1E293B":"#F8FAFC",
+                        color: a.turno===t?"#fff":"#64748B",
+                        borderColor: a.turno===t?"#1E293B":"#E2E8F0",
+                      }}>T{t}</button>
                     ))}
                   </div>
                 </div>
+                <div style={{ display:"flex", flexDirection:"column" }}>
+                  <label style={S.label}>N°</label>
+                  <input type="number" style={{ ...S.input, flex:1 }} placeholder="3"
+                    value={a.nroLinea} onChange={e => updateActividad(a.id,"nroLinea",e.target.value)} />
+                </div>
               </div>
 
-              {/* N° Línea */}
-              <div style={{ ...S.fieldGroup, maxWidth: 180, marginBottom: 12 }}>
-                <label style={S.label}>N° Línea</label>
-                <input type="number" style={S.input} placeholder="Ej: 3"
-                  value={a.nroLinea}
-                  onChange={e => updateActividad(a.id, "nroLinea", e.target.value)} />
-              </div>
-
-              <div style={S.row2}>
-                <div style={S.fieldGroup}>
+              {/* Fila 2: RAN + Unidad + Cliente */}
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:6, marginBottom:6 }}>
+                <div>
                   <label style={S.label}>RAN</label>
-                  <input style={S.input} placeholder="Número de orden" value={a.ran}
-                    onChange={e => updateActividad(a.id, "ran", e.target.value)} />
+                  <input style={S.input} placeholder="N° orden" value={a.ran}
+                    onChange={e => updateActividad(a.id,"ran",e.target.value)} />
                 </div>
-                <div style={S.fieldGroup}>
+                <div>
                   <label style={S.label}>Unidad / Equipo</label>
-                  <input style={S.input} placeholder="Ej: Reductor #4" value={a.unidad}
-                    onChange={e => updateActividad(a.id, "unidad", e.target.value)} />
+                  <input style={S.input} placeholder="Reductor #4" value={a.unidad}
+                    onChange={e => updateActividad(a.id,"unidad",e.target.value)} />
+                </div>
+                <div>
+                  <label style={S.label}>Cliente</label>
+                  <select style={S.select} value={a.cliente}
+                    onChange={e => updateActividad(a.id,"cliente",e.target.value)}>
+                    <option value="">— Seleccionar —</option>
+                    {CLIENTES.map(c => <option key={c} value={c}>{c}</option>)}
+                    <option value="__manual__">Otro</option>
+                  </select>
                 </div>
               </div>
+              {a.cliente === "__manual__" && (
+                <input style={{ ...S.input, marginBottom:6 }} placeholder="Nombre del cliente"
+                  value={a.clienteManual} onChange={e => updateActividad(a.id,"clienteManual",e.target.value)} />
+              )}
 
-              {/* Cliente */}
-              <div style={S.fieldGroup}>
-                <label style={S.label}>Cliente</label>
-                <select style={S.select} value={a.cliente}
-                  onChange={e => updateActividad(a.id, "cliente", e.target.value)}>
-                  <option value="">— Seleccionar cliente —</option>
-                  {CLIENTES.map(c => <option key={c} value={c}>{c}</option>)}
-                  <option value="__manual__">Otro (escribir)</option>
-                </select>
-                {a.cliente === "__manual__" && (
-                  <input style={{ ...S.input, marginTop: 6 }} placeholder="Nombre del cliente"
-                    value={a.clienteManual}
-                    onChange={e => updateActividad(a.id, "clienteManual", e.target.value)} />
-                )}
-              </div>
-
-              <div style={S.row2}>
-                <div style={S.fieldGroup}>
-                  <label style={S.label}>Técnicos asignados</label>
-                  <input style={S.input} placeholder="Ej: José, Alejandro, Francis" value={a.tecnicos}
-                    onChange={e => updateActividad(a.id, "tecnicos", e.target.value)} />
+              {/* Fila 3: Técnicos + Supervisor + Planificación */}
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:6, marginBottom:6 }}>
+                <div>
+                  <label style={S.label}>Técnicos</label>
+                  <input style={S.input} placeholder="José, Pedro..." value={a.tecnicos}
+                    onChange={e => updateActividad(a.id,"tecnicos",e.target.value)} />
                 </div>
-                <div style={S.fieldGroup}>
+                <div>
                   <label style={S.label}>Supervisor</label>
                   <select style={S.select} value={a.supervisor}
-                    onChange={e => updateActividad(a.id, "supervisor", e.target.value)}>
+                    onChange={e => updateActividad(a.id,"supervisor",e.target.value)}>
                     <option value="">— Seleccionar —</option>
                     {SUPERVISORES.map(s => <option key={s} value={s}>{s}</option>)}
-                    <option value="__manual__">Otro (escribir)</option>
+                    <option value="__manual__">Otro</option>
                   </select>
-                  {a.supervisor === "__manual__" && (
-                    <input style={{ ...S.input, marginTop: 6 }} placeholder="Nombre del supervisor"
-                      value={a.supervisorManual}
-                      onChange={e => updateActividad(a.id, "supervisorManual", e.target.value)} />
-                  )}
+                </div>
+                <div>
+                  <label style={S.label}>Planificación</label>
+                  <select style={S.select} value={a.planificacion}
+                    onChange={e => updateActividad(a.id,"planificacion",e.target.value)}>
+                    <option value="">— Seleccionar —</option>
+                    <option value="Luis Cortés">Luis Cortés</option>
+                    <option value="__manual__">Otro</option>
+                  </select>
                 </div>
               </div>
-
-              <div style={S.fieldGroup}>
-                <label style={S.label}>Planificación</label>
-                <select style={S.select} value={a.planificacion}
-                  onChange={e => updateActividad(a.id, "planificacion", e.target.value)}>
-                  <option value="">— Seleccionar —</option>
-                  <option value="Luis Cortés">Luis Cortés</option>
-                  <option value="__manual__">Otro (escribir)</option>
-                </select>
-                {a.planificacion === "__manual__" && (
-                  <input style={{ ...S.input, marginTop: 6 }} placeholder="Nombre"
-                    value={a.planificacionManual}
-                    onChange={e => updateActividad(a.id, "planificacionManual", e.target.value)} />
-                )}
-              </div>
+              {a.supervisor === "__manual__" && (
+                <input style={{ ...S.input, marginBottom:6 }} placeholder="Nombre supervisor"
+                  value={a.supervisorManual} onChange={e => updateActividad(a.id,"supervisorManual",e.target.value)} />
+              )}
+              {a.planificacion === "__manual__" && (
+                <input style={{ ...S.input, marginBottom:6 }} placeholder="Nombre planificación"
+                  value={a.planificacionManual} onChange={e => updateActividad(a.id,"planificacionManual",e.target.value)} />
+              )}
 
               <div style={S.divider} />
 
@@ -712,44 +708,63 @@ export default function ReporteTurno() {
                 }} />
               </div>
 
-              {a.tareas.map((t) => (
-                t.titulo ? (
-                  <div key={t.id} style={S.tareaHeader}>
-                    {t.nombre}
-                  </div>
-                ) : (
-                <div key={t.id} style={S.tareaItem}>
-                  <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
-                    <span style={{ flex: 1, fontSize: 13, color: "#1E293B", lineHeight: 1.5, paddingTop: 2 }}>{t.nombre}</span>
-                    <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
+              {(() => {
+                let seccionActual = null;
+                return a.tareas.map((t) => {
+                  if (t.titulo) {
+                    seccionActual = t.nombre;
+                    const key = a.id + ":" + t.nombre;
+                    const colapsada = seccionesColapsadas[key];
+                    return (
+                      <div key={t.id}
+                        onClick={() => toggleSeccion(a.id, t.nombre)}
+                        style={{ ...S.tareaHeader, cursor:"pointer", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                        <span>{t.nombre}</span>
+                        <span style={{ fontSize:10 }}>{colapsada ? "▶" : "▼"}</span>
+                      </div>
+                    );
+                  }
+                  const key = a.id + ":" + seccionActual;
+                  if (seccionesColapsadas[key]) return null;
+                  return (
+                <div key={t.id} style={{ padding:"4px 0", borderBottom:"1px solid #F1F5F9" }}>
+                  <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+                    <span style={{ flex:1, fontSize:12, color:"#1E293B", lineHeight:1.3 }}>{t.nombre}</span>
+                    <div style={{ display:"flex", gap:3, flexShrink:0 }}>
                       {[
-                        { val: "finalizado", label: "✓", colorOn: "#10B981", bgOn: "#D1FAE5" },
-                        { val: "noaplica",   label: "N/A", colorOn: "#94A3B8", bgOn: "#F1F5F9" },
-                        { val: "pendiente",  label: "⏳", colorOn: "#F59E0B", bgOn: "#FEF3C7" },
+                        { val:"finalizado", label:"✓",   colorOn:"#10B981", bgOn:"#D1FAE5" },
+                        { val:"noaplica",   label:"N/A", colorOn:"#94A3B8", bgOn:"#F1F5F9" },
+                        { val:"pendiente",  label:"⏳",  colorOn:"#F59E0B", bgOn:"#FEF3C7" },
                       ].map(op => (
                         <button key={op.val}
                           style={{
-                            padding: "4px 8px", borderRadius: 6, border: "1.5px solid",
-                            fontSize: 11, fontWeight: 700, cursor: "pointer",
-                            background: t.estado === op.val ? op.bgOn : "#F8FAFC",
-                            color: t.estado === op.val ? op.colorOn : "#CBD5E1",
-                            borderColor: t.estado === op.val ? op.colorOn : "#E2E8F0",
+                            padding:"3px 7px", borderRadius:5, border:"1.5px solid",
+                            fontSize:10, fontWeight:700, cursor:"pointer",
+                            background: t.estado===op.val?op.bgOn:"#F8FAFC",
+                            color: t.estado===op.val?op.colorOn:"#CBD5E1",
+                            borderColor: t.estado===op.val?op.colorOn:"#E2E8F0",
                           }}
-                          onClick={() => updateTarea(a.id, t.id, "estado", op.val)}>
+                          onClick={() => {
+                          const nuevoEstado = t.estado === op.val ? "" : op.val;
+                          updateTarea(a.id,t.id,"estado",nuevoEstado);
+                          if (nuevoEstado !== "pendiente") updateTarea(a.id,t.id,"notaPendiente","");
+                        }}>
                           {op.label}
                         </button>
                       ))}
                     </div>
                   </div>
                   {t.estado === "pendiente" && (
-                    <input style={{ ...S.input, marginTop: 6, fontSize: 13 }}
+                    <input
+                      style={{ width:"100%", marginTop:4, padding:"5px 8px", border:"1px solid #FCD34D", borderRadius:5, fontSize:11, color:"#92400E", background:"#FFFBEB", boxSizing:"border-box", outline:"none" }}
                       placeholder="Detalle del pendiente..."
                       value={t.notaPendiente}
-                      onChange={e => updateTarea(a.id, t.id, "notaPendiente", e.target.value)} />
+                      onChange={e => updateTarea(a.id,t.id,"notaPendiente",e.target.value)} />
                   )}
                 </div>
-                )
-              ))}
+                );
+                });
+              })()}
 
               <div style={S.divider} />
 
