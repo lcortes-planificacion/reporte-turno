@@ -1,106 +1,4 @@
-import { useState, useRef, useEffect } from "react";
-
-// ─────────────────────────────────────────────────────────────────────────────
-// FIRMA DIGITAL (componente inline, no requiere archivos extra)
-// ─────────────────────────────────────────────────────────────────────────────
-function Firma({ value, onChange, label }) {
-  const canvasRef = useRef(null);
-  const dibujando = useRef(false);
-  const ultimo = useRef(null);
-  const [tieneTrazo, setTieneTrazo] = useState(!!value);
-
-  const preparar = () => {
-    const c = canvasRef.current;
-    if (!c) return null;
-    const rect = c.getBoundingClientRect();
-    if (!rect.width) return null;
-    const ratio = window.devicePixelRatio || 1;
-    c.width = rect.width * ratio;
-    c.height = rect.height * ratio;
-    const ctx = c.getContext("2d");
-    ctx.scale(ratio, ratio);
-    ctx.lineCap = "round";
-    ctx.lineJoin = "round";
-    ctx.lineWidth = 2.4;
-    ctx.strokeStyle = "#141A21";
-    return ctx;
-  };
-
-  useEffect(() => {
-    const ctx = preparar();
-    if (ctx && value) {
-      const img = new Image();
-      img.onload = () => {
-        const rect = canvasRef.current.getBoundingClientRect();
-        ctx.drawImage(img, 0, 0, rect.width, rect.height);
-      };
-      img.src = value;
-    }
-  }, []);
-
-  const punto = (e) => {
-    const rect = canvasRef.current.getBoundingClientRect();
-    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
-  };
-  const iniciar = (e) => {
-    e.preventDefault();
-    canvasRef.current.setPointerCapture?.(e.pointerId);
-    dibujando.current = true;
-    ultimo.current = punto(e);
-  };
-  const mover = (e) => {
-    if (!dibujando.current) return;
-    e.preventDefault();
-    const ctx = canvasRef.current.getContext("2d");
-    const p = punto(e);
-    ctx.beginPath();
-    ctx.moveTo(ultimo.current.x, ultimo.current.y);
-    ctx.lineTo(p.x, p.y);
-    ctx.stroke();
-    ultimo.current = p;
-    if (!tieneTrazo) setTieneTrazo(true);
-  };
-  const terminar = () => {
-    if (!dibujando.current) return;
-    dibujando.current = false;
-    onChange?.(canvasRef.current.toDataURL("image/png"));
-  };
-  const limpiar = () => {
-    const c = canvasRef.current;
-    const rect = c.getBoundingClientRect();
-    c.getContext("2d").clearRect(0, 0, rect.width, rect.height);
-    setTieneTrazo(false);
-    onChange?.(null);
-  };
-
-  return (
-    <div>
-      <canvas
-        ref={canvasRef}
-        onPointerDown={iniciar}
-        onPointerMove={mover}
-        onPointerUp={terminar}
-        onPointerLeave={terminar}
-        style={{
-          touchAction: "none", width: "100%", height: 140, display: "block",
-          background: "#F8FAFC", borderRadius: 8,
-          border: tieneTrazo ? "1.5px solid #1B7A4B" : "1.5px dashed #C7CDD3",
-        }}
-      />
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 4 }}>
-        <span style={{ fontSize: 11, fontWeight: 600, color: tieneTrazo ? "#1B7A4B" : "#94A3B8" }}>
-          {tieneTrazo ? "✓ Firmado" : label}
-        </span>
-        {tieneTrazo && (
-          <button onClick={limpiar} style={{ background: "none", border: "none", color: "#B3261E", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
-            ✕ Borrar
-          </button>
-        )}
-      </div>
-    </div>
-  );
-}
-
+import React, { useState, useRef, useEffect } from "react";
 
 const TURNOS = ["A", "B"];
 const LINEAS = ["Ensamble", "Desarme"];
@@ -249,6 +147,7 @@ const defaultActividad = () => {
     planificacionManual: "",
     tareas: makeTareas(linea),
     observaciones: "",
+    notaTraspaso: "",
     fotos: [],
   };
 };
@@ -283,9 +182,8 @@ export default function ReporteTurno() {
   // ── Entrega de turno ──────────────────────────────────────────────────────
   const [nombreSaliente, setNombreSaliente] = useState("");
   const [nombreEntrante, setNombreEntrante] = useState("");
-  const [firmaSaliente, setFirmaSaliente] = useState(null);
-  const [firmaEntrante, setFirmaEntrante] = useState(null);
   const [entregaHecha, setEntregaHecha] = useState(null);
+  const [ranAbierto, setRanAbierto] = useState(null);
 
   // ── App instalable en el celular (PWA) ────────────────────────────────────
   const [instalador, setInstalador] = useState(null);
@@ -419,8 +317,7 @@ export default function ReporteTurno() {
         } else if (datos?.tipo === "entrega-turno" && Array.isArray(datos.actividades)) {
           setActividades(datos.actividades);
           setNombreSaliente(datos.entrega || "");
-          setFirmaSaliente(datos.firmaSaliente || null);
-          setStep("form");
+              setStep("form");
           const de = datos.entrega ? ` de ${datos.entrega}` : "";
           alert(`✅ Entrega de turno${de} cargada.\n\nRevisa los pendientes y firma la recepción en "Entrega de turno".`);
         } else {
@@ -444,8 +341,6 @@ export default function ReporteTurno() {
       generado: new Date().toISOString(),
       entrega: nombreSaliente || null,
       recibe: nombreEntrante || null,
-      firmaSaliente,
-      firmaEntrante,
       actividades: datos,
     };
     const fecha = new Date().toLocaleDateString("es-CL").replace(/\//g, "-");
@@ -470,149 +365,271 @@ export default function ReporteTurno() {
     URL.revokeObjectURL(url);
   };
 
-  // ── PDF ────────────────────────────────────────────────────────────────────
+  // ── PDF: ACTA DE ENTREGA DE TURNO ─────────────────────────────────────────
   const handleExportPDF = () => {
-    const actividadesHTML = actividades.map((a, i) => {
+    const esc = (t) => String(t ?? "").replace(/[<>&]/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;" }[c]));
+
+    const datos = actividades.map((a, i) => {
       const avance = calcAvance(a.tareas);
-      const fecha = new Date(a.fecha + "T12:00:00").toLocaleDateString("es-CL", {
-        weekday: "long", year: "numeric", month: "long", day: "numeric",
-      });
-      const clienteLabel = a.cliente === "__manual__" ? a.clienteManual : a.cliente;
-      const supervisorLabel = a.supervisor === "__manual__" ? a.supervisorManual : a.supervisor;
-      const planificacionLabel = a.planificacion === "__manual__" ? a.planificacionManual : a.planificacion;
-      const nroLinea = a.nroLinea ? ` N°${a.nroLinea}` : "";
-
-      const tareasFinalizadas = a.tareas.filter((t) => !t.titulo && t.estado === "finalizado");
-      const tareasPendientesConNota = a.tareas.filter((t) => !t.titulo && t.estado === "pendiente" && t.notaPendiente);
-      const tareasPendientesSinNota = a.tareas.filter((t) => !t.titulo && t.estado === "pendiente" && !t.notaPendiente);
-      const tareasNoAplica = a.tareas.filter((t) => !t.titulo && t.estado === "noaplica");
-
-      const renderTareasPDF = (lista, titulo, color, resaltar = false) =>
-        lista.length
-          ? `<div style="margin-bottom:7px;">
-              <div style="font-size:8px;font-weight:700;color:${color};margin-bottom:3px;">${titulo}</div>
-              <div style="${resaltar ? "background:#FFF8ED;border:1px solid #E0A245;border-radius:6px;padding:5px 7px;" : ""}display:grid;grid-template-columns:1fr 1fr 1fr;gap:1px 8px;">
-                ${lista.map((t) => `
-                  <div style="font-size:${resaltar ? "10px" : "9px"};font-weight:${resaltar ? "600" : "400"};color:${resaltar ? "#8A5A1E" : "#141A21"};padding:${resaltar ? "2px 0" : "1px 0"};word-break:break-word;white-space:normal;">
-                    ${resaltar ? "⚠️" : "·"} ${t.nombre}${t.notaPendiente ? ` <span style="color:#8A5A1E;font-style:italic;">— ${t.notaPendiente}</span>` : ""}
-                  </div>`).join("")}
-              </div>
-            </div>` : "";
-
-      const renderPendientesSinNotaPDF = (lista) =>
-        lista.length
-          ? `<div style="margin-bottom:7px;">
-              <div style="font-size:8px;font-weight:700;color:#64748B;margin-bottom:3px;">🕐 PENDIENTE</div>
-              <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1px 8px;">
-                ${lista.map((t) => `
-                  <div style="font-size:9px;color:#64748B;padding:1px 0;word-break:break-word;white-space:normal;">
-                    · ${t.nombre}
-                  </div>`).join("")}
-              </div>
-            </div>` : "";
-
-      const fotosHTML = a.fotos?.length
-        ? `<div style="margin-top:8px;">
-            <div style="font-size:8px;font-weight:700;color:#64748B;margin-bottom:4px;">FOTOS DE EVIDENCIA</div>
-            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;">
-              ${a.fotos.slice(0,6).map((f) => `<img src="${f.dataUrl}" style="width:100%;height:80px;object-fit:cover;border-radius:4px;border:1px solid #E2E8F0;" />`).join("")}
-            </div>
-          </div>` : "";
-
-      const esUltima = i === actividades.length - 1;
-
-      const breakStyle = i === 0 ? "" : "break-before:page;page-break-before:always;";
-      return `
-        <div style="border:1px solid #E2E8F0;border-radius:10px;overflow:hidden;${breakStyle}">
-          <div style="background:#141A21;padding:10px 14px;display:flex;align-items:center;gap:10px;">
-            <div style="font-size:16px;">⚙️</div>
-            <div>
-              <div style="color:#F1F5F9;font-weight:800;font-size:13px;">Turno ${a.turno} — ${a.linea}${nroLinea} — Actividad ${i + 1}</div>
-              <div style="color:#94A3B8;font-size:9px;text-transform:capitalize;margin-top:1px;">${fecha}</div>
-            </div>
-          </div>
-          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:#E2E8F0;">
-            ${a.ran ? `<div style="background:#FDF0DC;padding:5px 8px;"><div style="font-size:7px;font-weight:700;color:#8A5A1E;">RAN</div><div style="font-size:10px;font-weight:600;color:#78350F;">${a.ran}</div></div>` : ""}
-            ${a.unidad ? `<div style="background:#EFF6FF;padding:5px 8px;"><div style="font-size:7px;font-weight:700;color:#1D4ED8;">UNIDAD / EQUIPO</div><div style="font-size:10px;font-weight:600;color:#1E40AF;">${a.unidad}</div></div>` : ""}
-            ${clienteLabel ? `<div style="background:#F3E8FF;padding:5px 8px;"><div style="font-size:7px;font-weight:700;color:#6B21A8;">CLIENTE</div><div style="font-size:10px;font-weight:600;color:#581C87;">${clienteLabel}</div></div>` : ""}
-            ${a.tecnicos ? `<div style="background:#F0FDF4;padding:5px 8px;"><div style="font-size:7px;font-weight:700;color:#166534;">TÉCNICOS</div><div style="font-size:10px;font-weight:600;color:#14532D;">${a.tecnicos}</div></div>` : ""}
-            ${supervisorLabel ? `<div style="background:#F8FAFC;padding:5px 8px;"><div style="font-size:7px;font-weight:700;color:#475569;">SUPERVISOR</div><div style="font-size:10px;font-weight:600;color:#141A21;">${supervisorLabel}</div></div>` : ""}
-            ${planificacionLabel ? `<div style="background:#FFF7ED;padding:5px 8px;"><div style="font-size:7px;font-weight:700;color:#9A3412;">PLANIFICACIÓN</div><div style="font-size:10px;font-weight:600;color:#7C2D12;">${planificacionLabel}</div></div>` : ""}
-          </div>
-          <div style="padding:10px 14px;">
-            <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
-              <div style="font-size:8px;font-weight:700;color:#64748B;min-width:45px;">AVANCE</div>
-              <div style="flex:1;background:#E2E8F0;border-radius:99px;height:7px;overflow:hidden;">
-                <div style="height:100%;border-radius:99px;width:${avance}%;background:${avance === 100 ? "#1B7A4B" : avance >= 60 ? "#C9822E" : "#B3261E"};"></div>
-              </div>
-              <span style="font-size:12px;font-weight:800;color:#141A21;min-width:34px;text-align:right;">${avance}%</span>
-            </div>
-            ${renderTareasPDF(tareasFinalizadas, "✅ FINALIZADO", "#166534")}
-            ${renderTareasPDF(tareasPendientesConNota, "⏳ PENDIENTE CON NOTA", "#8A5A1E", true)}
-            ${renderPendientesSinNotaPDF(tareasPendientesSinNota)}
-            ${renderTareasPDF(tareasNoAplica, "— NO APLICA", "#94A3B8")}
-            ${a.observaciones ? `<div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:6px;padding:5px 8px;font-size:9px;color:#475569;margin-top:6px;">📝 ${a.observaciones}</div>` : ""}
-            ${fotosHTML}
-          </div>
-        </div>`;
-    }).join("");
-
-    const fechaEncabezado = new Date().toLocaleDateString("es-CL", {
-      weekday: "long", year: "numeric", month: "long", day: "numeric"
+      const reales = a.tareas.filter((t) => !t.titulo);
+      return {
+        i,
+        a,
+        avance,
+        cliente: a.cliente === "__manual__" ? a.clienteManual : a.cliente,
+        supervisor: a.supervisor === "__manual__" ? a.supervisorManual : a.supervisor,
+        planificacion: a.planificacion === "__manual__" ? a.planificacionManual : a.planificacion,
+        pend: reales.filter((t) => t.estado === "pendiente"),
+        fin: reales.filter((t) => t.estado === "finalizado"),
+        na: reales.filter((t) => t.estado === "noaplica"),
+        sin: reales.filter((t) => !t.estado),
+      };
     });
 
-    const html = `<!DOCTYPE html>
-<html lang="es">
-<head>
-<meta charset="UTF-8">
-<title>Reporte Diario SMAN</title>
-<style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  html, body { width: 100%; background: white; font-family: 'Segoe UI', system-ui, sans-serif; color: #141A21; }
-  @page { margin: 10mm; size: letter; }
-  @media print { * { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
-  .actividad { page-break-before: always; }
-  .actividad:first-child { page-break-before: avoid; }
-</style>
-</head>
-<body>
-  <div style="background:#141A21;padding:12px 16px;border-radius:8px 8px 0 0;display:flex;align-items:center;justify-content:space-between;">
-    <div style="display:flex;align-items:center;gap:10px;">
-      <div style="font-size:20px;">⚙️</div>
-      <div>
-        <div style="color:#F1F5F9;font-weight:800;font-size:15px;">Reporte Diario SMAN</div>
-        <div style="color:#94A3B8;font-size:10px;">SM Cyclo Chile</div>
-      </div>
-    </div>
-    <div style="text-align:right;">
-      <div style="color:#F1F5F9;font-size:10px;text-transform:capitalize;">${fechaEncabezado}</div>
+    const totalPend = datos.reduce((n, d) => n + d.pend.length, 0);
+    const avgAvance = datos.length ? Math.round(datos.reduce((n, d) => n + d.avance, 0) / datos.length) : 0;
+    const p0 = datos[0]?.a || {};
+    const fechaTurno = p0.fecha
+      ? new Date(p0.fecha + "T12:00:00").toLocaleDateString("es-CL", { day: "2-digit", month: "long", year: "numeric" })
+      : new Date().toLocaleDateString("es-CL");
+    const emitido = new Date().toLocaleString("es-CL");
+    const folio = `ET-${(p0.fecha || "").replace(/-/g, "")}-T${p0.turno || ""}`;
 
-    </div>
-  </div>
-  <div style="height:3px;background:#2F6E8F;margin-bottom:12px;"></div>
-  ${actividadesHTML}
-  ${firmaSaliente || firmaEntrante ? `
-  <div style="margin-top:14px;border:1px solid #E2E8F0;border-radius:10px;padding:12px 14px;break-inside:avoid;">
-    <div style="font-size:9px;font-weight:700;color:#64748B;margin-bottom:8px;letter-spacing:0.06em;">ENTREGA DE TURNO</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;">
-      <div>
-        <div style="font-size:8px;font-weight:700;color:#64748B;margin-bottom:3px;">ENTREGA</div>
-        ${firmaSaliente ? `<img src="${firmaSaliente}" style="width:100%;max-height:70px;object-fit:contain;" />` : `<div style="height:70px;"></div>`}
-        <div style="border-top:1px solid #94A3B8;padding-top:3px;font-size:10px;color:#141A21;font-weight:600;">${nombreSaliente || "&nbsp;"}</div>
-      </div>
-      <div>
-        <div style="font-size:8px;font-weight:700;color:#64748B;margin-bottom:3px;">RECIBE</div>
-        ${firmaEntrante ? `<img src="${firmaEntrante}" style="width:100%;max-height:70px;object-fit:contain;" />` : `<div style="height:70px;"></div>`}
-        <div style="border-top:1px solid #94A3B8;padding-top:3px;font-size:10px;color:#141A21;font-weight:600;">${nombreEntrante || "&nbsp;"}</div>
-      </div>
-    </div>
-  </div>` : ""}
-  <script>window.onload = () => { window.print(); }<\/script>
-</body>
-</html>`;
+    // Código de verificación: se deriva del contenido del acta. Si algún dato
+    // cambia después de emitido, el código ya no corresponde.
+    const huella = JSON.stringify(datos.map((d) => [d.a.ran, d.avance, d.pend.map((t) => t.nombre + t.notaPendiente), d.a.notaTraspaso]));
+    let h1 = 0x811c9dc5, h2 = 0x01000193;
+    for (let k = 0; k < huella.length; k++) {
+      h1 = (h1 ^ huella.charCodeAt(k)) >>> 0;
+      h1 = (h1 * 0x01000193) >>> 0;
+      h2 = (h2 + huella.charCodeAt(k) * (k + 7)) >>> 0;
+    }
+    const alfabeto = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    const trozo = (n) => { let r = ""; for (let k = 0; k < 4; k++) { r += alfabeto[n % 32]; n = Math.floor(n / 32); } return r; };
+    const codigo = `${trozo(h1)}-${trozo(h2)}`;
+
+    const barra = (pct) => {
+      const col = pct === 100 ? "#1B7A4B" : pct >= 60 ? "#C9822E" : "#B3261E";
+      return `<div style="display:flex;align-items:center;gap:5px;">
+        <div style="flex:1;background:#E2E8F0;border-radius:99px;height:5px;overflow:hidden;">
+          <div style="height:100%;width:${pct}%;background:${col};border-radius:99px;"></div>
+        </div>
+        <span style="font-size:9px;font-weight:800;color:${col};min-width:26px;text-align:right;">${pct}%</span>
+      </div>`;
+    };
+
+    // ── HOJA 1: ACTA ─────────────────────────────────────────────────────────
+    const filasResumen = datos.map((d) => `
+      <tr>
+        <td style="padding:5px 7px;border-bottom:1px solid #E8EBEE;font-family:monospace;font-weight:700;font-size:10px;">${esc(d.a.ran || "—")}</td>
+        <td style="padding:5px 7px;border-bottom:1px solid #E8EBEE;">
+          <span style="font-size:8px;font-weight:800;color:#fff;background:${d.a.linea === "Ensamble" ? "#2F6E8F" : "#A15A32"};border-radius:3px;padding:1px 5px;">${d.a.linea === "Ensamble" ? "ENS" : "DES"}</span>
+        </td>
+        <td style="padding:5px 7px;border-bottom:1px solid #E8EBEE;font-size:10px;">${esc(d.a.unidad || "—")}</td>
+        <td style="padding:5px 7px;border-bottom:1px solid #E8EBEE;font-size:9px;color:#4B5560;">${esc(d.cliente || "—")}</td>
+        <td style="padding:5px 7px;border-bottom:1px solid #E8EBEE;width:90px;">${barra(d.avance)}</td>
+        <td style="padding:5px 7px;border-bottom:1px solid #E8EBEE;text-align:center;">
+          ${d.pend.length
+            ? `<span style="background:#FDF0DC;color:#8A5A1E;font-weight:800;font-size:10px;border-radius:9px;padding:1px 7px;">${d.pend.length}</span>`
+            : `<span style="color:#1B7A4B;font-weight:800;font-size:10px;">✓</span>`}
+        </td>
+      </tr>`).join("");
+
+    const acta = `
+      <div style="border:1.5px solid #141A21;border-radius:6px;overflow:hidden;">
+        <div style="background:#141A21;padding:12px 16px;display:flex;justify-content:space-between;align-items:flex-end;">
+          <div>
+            <div style="color:#E0A245;font-size:9px;font-weight:800;letter-spacing:0.16em;">SM CYCLO DE CHILE LTDA. · SMAN ANTOFAGASTA</div>
+            <div style="color:#fff;font-size:17px;font-weight:800;letter-spacing:-0.3px;margin-top:2px;">ACTA DE ENTREGA DE TURNO</div>
+          </div>
+          <div style="text-align:right;color:#94A3B8;font-size:9px;font-family:monospace;">
+            <div>FOLIO ${esc(folio)}</div>
+            <div>${esc(emitido)}</div>
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:#E2E8F0;">
+          ${[["FECHA DEL TURNO", fechaTurno], ["TURNO", p0.turno ? "Turno " + p0.turno : "—"],
+             ["SUPERVISOR", datos[0]?.supervisor || "—"], ["PLANIFICACIÓN", datos[0]?.planificacion || "—"]]
+            .map(([k, v]) => `<div style="background:#F8FAFC;padding:6px 9px;">
+              <div style="font-size:7px;font-weight:800;color:#64748B;letter-spacing:0.08em;">${k}</div>
+              <div style="font-size:10px;font-weight:700;color:#141A21;margin-top:1px;">${esc(v)}</div>
+            </div>`).join("")}
+        </div>
+
+        <div style="padding:12px 16px;">
+          <div style="display:flex;gap:10px;margin-bottom:12px;">
+            <div style="flex:1;border:1px solid #E2E8F0;border-radius:5px;padding:8px 10px;text-align:center;">
+              <div style="font-size:20px;font-weight:800;color:#141A21;">${datos.length}</div>
+              <div style="font-size:8px;font-weight:700;color:#64748B;letter-spacing:0.06em;">EQUIPOS EN TURNO</div>
+            </div>
+            <div style="flex:1;border:1.5px solid #E0A245;background:#FFF8ED;border-radius:5px;padding:8px 10px;text-align:center;">
+              <div style="font-size:20px;font-weight:800;color:#8A5A1E;">${totalPend}</div>
+              <div style="font-size:8px;font-weight:800;color:#8A5A1E;letter-spacing:0.06em;">TAREAS PENDIENTES</div>
+            </div>
+            <div style="flex:1;border:1px solid #E2E8F0;border-radius:5px;padding:8px 10px;text-align:center;">
+              <div style="font-size:20px;font-weight:800;color:#141A21;">${avgAvance}%</div>
+              <div style="font-size:8px;font-weight:700;color:#64748B;letter-spacing:0.06em;">AVANCE PROMEDIO</div>
+            </div>
+          </div>
+
+          <div style="font-size:8px;font-weight:800;color:#64748B;letter-spacing:0.09em;margin-bottom:5px;">DETALLE DE EQUIPOS</div>
+          <table style="width:100%;border-collapse:collapse;">
+            <thead>
+              <tr style="background:#F1F5F9;">
+                ${["RAN", "LÍNEA", "EQUIPO / UNIDAD", "CLIENTE", "AVANCE", "PEND."].map((h, k) =>
+                  `<th style="padding:5px 7px;text-align:${k === 4 || k === 5 ? "center" : "left"};font-size:7.5px;font-weight:800;color:#4B5560;letter-spacing:0.07em;border-bottom:1.5px solid #CBD5E1;">${h}</th>`).join("")}
+              </tr>
+            </thead>
+            <tbody>${filasResumen}</tbody>
+          </table>
+        </div>
+
+        <div style="border-top:1.5px solid #141A21;padding:11px 16px;background:#F8FAFC;">
+          <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:16px;align-items:end;">
+            <div>
+              <div style="font-size:7.5px;font-weight:800;color:#64748B;letter-spacing:0.08em;">EMITIDO POR</div>
+              <div style="font-size:11px;font-weight:700;color:#141A21;">${esc(nombreSaliente) || "—"}</div>
+              <div style="font-size:8px;color:#64748B;">Planificación y Control de Producción · SMAN Antofagasta</div>
+            </div>
+            <div>
+              <div style="font-size:7.5px;font-weight:800;color:#64748B;letter-spacing:0.08em;">DIRIGIDO A</div>
+              <div style="font-size:11px;font-weight:700;color:#141A21;">${esc(nombreEntrante) || "—"}</div>
+              <div style="font-size:8px;color:#64748B;">Turno entrante</div>
+            </div>
+            <div style="text-align:right;">
+              <div style="font-size:7.5px;font-weight:800;color:#64748B;letter-spacing:0.08em;">CÓDIGO DE VERIFICACIÓN</div>
+              <div style="font-family:monospace;font-size:13px;font-weight:800;color:#141A21;letter-spacing:0.08em;">${codigo}</div>
+              <div style="font-size:7.5px;color:#64748B;">Emitido ${esc(emitido)}</div>
+            </div>
+          </div>
+          <div style="font-size:7.5px;color:#8A93A0;margin-top:8px;line-height:1.4;">
+            Documento generado automáticamente desde el sistema de Reporte de Turno. El código de verificación se calcula a partir del contenido del acta; cualquier modificación posterior invalida su correspondencia.
+          </div>
+        </div>
+      </div>`;
+
+    // ── HOJA 2: PENDIENTES CONSOLIDADOS ──────────────────────────────────────
+    const conPend = datos.filter((d) => d.pend.length || d.a.notaTraspaso);
+    const hojaPendientes = `
+      <div style="break-before:page;page-break-before:always;">
+        <div style="background:#141A21;padding:9px 14px;border-radius:5px 5px 0 0;display:flex;justify-content:space-between;align-items:center;">
+          <div style="color:#fff;font-size:13px;font-weight:800;">PENDIENTES PARA EL TURNO ENTRANTE</div>
+          <div style="color:#E0A245;font-size:11px;font-weight:800;">${totalPend} tarea${totalPend !== 1 ? "s" : ""}</div>
+        </div>
+        <div style="border:1px solid #E2E8F0;border-top:none;border-radius:0 0 5px 5px;padding:10px 14px;">
+        ${conPend.length === 0
+          ? `<div style="font-size:11px;color:#1B7A4B;font-weight:700;padding:8px 0;">Sin tareas pendientes. Todos los equipos quedan al día.</div>`
+          : conPend.map((d) => `
+            <div style="margin-bottom:11px;break-inside:avoid;">
+              <div style="display:flex;align-items:center;gap:6px;border-bottom:1.5px solid #141A21;padding-bottom:3px;margin-bottom:5px;">
+                <span style="font-size:8px;font-weight:800;color:#fff;background:${d.a.linea === "Ensamble" ? "#2F6E8F" : "#A15A32"};border-radius:3px;padding:1px 5px;">${d.a.linea === "Ensamble" ? "ENS" : "DES"}</span>
+                <span style="font-family:monospace;font-size:12px;font-weight:800;">RAN ${esc(d.a.ran || "—")}</span>
+                <span style="font-size:10px;color:#4B5560;">${esc(d.a.unidad || "")}</span>
+                <span style="margin-left:auto;font-size:9px;font-weight:800;color:#8A5A1E;">${d.pend.length} pend. · ${d.avance}%</span>
+              </div>
+              ${d.pend.map((t) => `
+                <div style="background:#FFF8ED;border-left:3px solid #E0A245;padding:4px 8px;margin-bottom:3px;">
+                  <div style="font-size:10.5px;color:#141A21;font-weight:600;">${esc(t.nombre)}</div>
+                  ${t.notaPendiente ? `<div style="font-size:9.5px;color:#8A5A1E;font-style:italic;">${esc(t.notaPendiente)}</div>` : ""}
+                </div>`).join("")}
+              ${d.a.notaTraspaso ? `
+                <div style="background:#F1F5F9;border-left:3px solid #141A21;padding:5px 8px;margin-top:4px;">
+                  <div style="font-size:7.5px;font-weight:800;color:#64748B;letter-spacing:0.07em;">INSTRUCCIÓN</div>
+                  <div style="font-size:10px;color:#141A21;font-weight:600;">${esc(d.a.notaTraspaso)}</div>
+                </div>` : ""}
+            </div>`).join("")}
+        </div>
+      </div>`;
+
+    // ── HOJAS 3+: DETALLE POR EQUIPO ─────────────────────────────────────────
+    const compacto = (lista, titulo, color) => lista.length ? `
+      <div style="margin-top:7px;">
+        <div style="font-size:7.5px;font-weight:800;color:${color};letter-spacing:0.07em;margin-bottom:2px;">${titulo} (${lista.length})</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0 9px;">
+          ${lista.map((t) => `<div style="font-size:8px;color:#6B7580;line-height:1.35;">· ${esc(t.nombre)}</div>`).join("")}
+        </div>
+      </div>` : "";
+
+    const hojasDetalle = datos.map((d) => `
+      <div style="break-before:page;page-break-before:always;">
+        <div style="background:#141A21;padding:9px 14px;border-radius:5px 5px 0 0;display:flex;justify-content:space-between;align-items:center;">
+          <div>
+            <div style="color:#fff;font-size:13px;font-weight:800;font-family:monospace;">RAN ${esc(d.a.ran || "—")}</div>
+            <div style="color:#94A3B8;font-size:9px;">${esc(d.a.unidad || "")}${d.cliente ? " · " + esc(d.cliente) : ""}</div>
+          </div>
+          <div style="text-align:right;">
+            <div style="color:#E0A245;font-size:9px;font-weight:800;">${d.a.linea.toUpperCase()}${d.a.nroLinea ? " N°" + esc(d.a.nroLinea) : ""}</div>
+            <div style="color:#fff;font-size:15px;font-weight:800;">${d.avance}%</div>
+          </div>
+        </div>
+        <div style="border:1px solid #E2E8F0;border-top:none;border-radius:0 0 5px 5px;padding:9px 14px;">
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-bottom:8px;">
+            ${[["TÉCNICOS", d.a.tecnicos], ["SUPERVISOR", d.supervisor], ["TURNO", d.a.turno ? "Turno " + d.a.turno : ""]]
+              .filter(([, v]) => v).map(([k, v]) => `<div>
+                <div style="font-size:7px;font-weight:800;color:#64748B;">${k}</div>
+                <div style="font-size:9.5px;font-weight:600;color:#141A21;">${esc(v)}</div>
+              </div>`).join("")}
+          </div>
+
+          ${d.pend.length ? `
+            <div style="border:1.5px solid #E0A245;background:#FFF8ED;border-radius:5px;padding:7px 9px;">
+              <div style="font-size:8.5px;font-weight:800;color:#8A5A1E;letter-spacing:0.07em;margin-bottom:4px;">⚠ PENDIENTE — ${d.pend.length} TAREA${d.pend.length !== 1 ? "S" : ""}</div>
+              ${d.pend.map((t) => `
+                <div style="padding:2px 0;border-bottom:1px solid #F0DCC0;">
+                  <span style="font-size:10.5px;font-weight:600;color:#141A21;">${esc(t.nombre)}</span>
+                  ${t.notaPendiente ? `<span style="font-size:9.5px;color:#8A5A1E;font-style:italic;"> — ${esc(t.notaPendiente)}</span>` : ""}
+                </div>`).join("")}
+            </div>` : `
+            <div style="border:1px solid #1B7A4B;background:#DCF2E5;border-radius:5px;padding:6px 9px;font-size:10px;font-weight:700;color:#1B7A4B;">
+              ✓ Sin tareas pendientes en este equipo
+            </div>`}
+
+          ${d.a.notaTraspaso ? `
+            <div style="background:#F1F5F9;border-left:3px solid #141A21;padding:5px 9px;margin-top:6px;">
+              <div style="font-size:7.5px;font-weight:800;color:#64748B;letter-spacing:0.07em;">INSTRUCCIÓN PARA EL TURNO ENTRANTE</div>
+              <div style="font-size:10px;color:#141A21;font-weight:600;">${esc(d.a.notaTraspaso)}</div>
+            </div>` : ""}
+
+          ${d.a.observaciones ? `
+            <div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:5px;padding:5px 9px;margin-top:6px;font-size:9.5px;color:#4B5560;">
+              <strong style="font-size:7.5px;color:#64748B;">OBSERVACIONES</strong><br/>${esc(d.a.observaciones)}
+            </div>` : ""}
+
+          ${compacto(d.fin, "EJECUTADO Y CONFORME", "#1B7A4B")}
+          ${compacto(d.sin, "NO INICIADO", "#8A5A1E")}
+          ${compacto(d.na, "NO APLICA", "#94A3B8")}
+
+          ${d.a.fotos?.length ? `
+            <div style="margin-top:8px;">
+              <div style="font-size:7.5px;font-weight:800;color:#64748B;letter-spacing:0.07em;margin-bottom:3px;">REGISTRO FOTOGRÁFICO</div>
+              <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:5px;">
+                ${d.a.fotos.slice(0, 6).map((f) => `<img src="${f.dataUrl}" style="width:100%;height:74px;object-fit:cover;border-radius:3px;border:1px solid #E2E8F0;" />`).join("")}
+              </div>
+            </div>` : ""}
+        </div>
+      </div>`).join("");
+
+    const html = `<!DOCTYPE html>
+<html lang="es"><head><meta charset="UTF-8"><title>Acta de Entrega de Turno — ${esc(folio)}</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html,body{background:#fff;font-family:'Segoe UI',system-ui,sans-serif;color:#141A21;}
+  @page{margin:11mm;size:letter;}
+  @media print{*{-webkit-print-color-adjust:exact;print-color-adjust:exact;}}
+  table{border-collapse:collapse;}
+</style></head>
+<body>
+  ${acta}
+  ${hojaPendientes}
+  ${hojasDetalle}
+  <script>window.onload=()=>{window.print();}<\/script>
+</body></html>`;
+
     const blob = new Blob([html], { type: "text/html" });
     window.open(URL.createObjectURL(blob), "_blank");
   };
+
 
   // ── PREVIEW ────────────────────────────────────────────────────────────────
   if (step === "preview") {
@@ -621,7 +638,7 @@ export default function ReporteTurno() {
         <div style={S.container}>
           <div style={S.topBar}>
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <div style={{ fontSize: 26 }}>⚙️</div>
+              <div style={{ fontSize: 24 }}>📋</div>
               <div>
                 <div style={S.topBarTitle}>Resumen del Reporte</div>
                 <div style={S.topBarSub}>{actividades.length} actividad{actividades.length !== 1 ? "es" : ""} registrada{actividades.length !== 1 ? "s" : ""}</div>
@@ -633,7 +650,7 @@ export default function ReporteTurno() {
             <button style={{ ...S.shareBtn, background: "#141A21", color: "#fff", border: "none" }} onClick={handleExportPDF}>
               📄 Exportar PDF
             </button>
-            <button style={S.shareBtn} onClick={() => setStep("form")}>← Editar</button>
+            <button style={S.shareBtn} onClick={() => setStep("entrega")}>← Volver a entrega</button>
           </div>
 
           <button style={{ ...S.btnPrimary, background: "#C9822E", marginBottom: 20 }} onClick={() => setStep("entrega")}>
@@ -652,7 +669,7 @@ export default function ReporteTurno() {
             return (
               <div key={a.id} style={S.previewCard}>
                 <div style={S.previewCardTopBar}>
-                  <div style={{ fontSize: 20 }}>⚙️</div>
+                  <div style={{ fontSize: 18 }}>📋</div>
                   <div>
                     <div style={S.previewCardBarTitle}>Turno {a.turno} — {a.linea}{nroLinea} — Actividad {i + 1}</div>
                     <div style={S.previewCardBarSub}>{fecha}</div>
@@ -715,13 +732,22 @@ export default function ReporteTurno() {
 
   // ── ENTREGA DE TURNO ───────────────────────────────────────────────────────
   if (step === "entrega") {
-    const avancePromedio = actividades.length
-      ? Math.round(actividades.reduce((acc, a) => acc + calcAvance(a.tareas), 0) / actividades.length)
+    // Cada actividad = un RAN. La entrega se arma POR RAN, no en una lista general.
+    const resumen = actividades.map((a, i) => {
+      const avance = calcAvance(a.tareas);
+      const pend = a.tareas.filter((t) => !t.titulo && t.estado === "pendiente");
+      return {
+        idx: i,
+        act: a,
+        avance,
+        pend,
+        cliente: a.cliente === "__manual__" ? a.clienteManual : a.cliente,
+      };
+    });
+    const totalPendientes = resumen.reduce((n, r) => n + r.pend.length, 0);
+    const avancePromedio = resumen.length
+      ? Math.round(resumen.reduce((n, r) => n + r.avance, 0) / resumen.length)
       : 0;
-    const pendientes = actividades.flatMap((a) =>
-      a.tareas.filter((t) => !t.titulo && t.estado === "pendiente")
-        .map((t) => ({ ran: a.ran, linea: a.linea, nombre: t.nombre, nota: t.notaPendiente }))
-    );
 
     return (
       <div style={S.root}>
@@ -732,56 +758,138 @@ export default function ReporteTurno() {
               <div>
                 <div style={S.topBarTitle}>Entrega de Turno</div>
                 <div style={S.topBarSub}>
-                  {actividades.length} actividad{actividades.length !== 1 ? "es" : ""} · {avancePromedio}% avance
+                  {resumen.length} RAN · {totalPendientes} pendiente{totalPendientes !== 1 ? "s" : ""} · {avancePromedio}% avance
                 </div>
               </div>
             </div>
           </div>
 
-          <button style={{ ...S.shareBtn, width: "100%", marginBottom: 14 }} onClick={() => setStep("preview")}>
-            ← Volver al resumen
-          </button>
+          <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+            <button style={{ ...S.shareBtn, flex: 1 }} onClick={() => setStep("form")}>← Editar actividades</button>
+            <button style={{ ...S.shareBtn, flex: 1 }} onClick={() => setStep("preview")}>Ver detalle completo</button>
+          </div>
 
-          {/* Lo que queda pendiente es lo más importante de un traspaso */}
+          {/* ── TABLA RESUMEN: los 10 RAN de un vistazo ── */}
           <div style={S.section}>
-            <div style={S.sectionLabel}>QUEDA PENDIENTE PARA EL PRÓXIMO TURNO</div>
-            {pendientes.length === 0 ? (
-              <div style={{ fontSize: 13, color: "#1B7A4B", fontWeight: 600 }}>
-                ✓ Sin pendientes registrados
-              </div>
-            ) : (
-              pendientes.map((p, idx) => (
-                <div key={idx} style={{ background: "#FFF8ED", border: "1px solid #E0A245", borderRadius: 8, padding: "8px 10px", marginBottom: 6 }}>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: "#8A5A1E", marginBottom: 2 }}>
-                    {p.ran ? `RAN ${p.ran} · ` : ""}{p.linea}
+            <div style={S.sectionLabel}>EQUIPOS EN ESTE TURNO</div>
+            <div style={{ display: "grid", gridTemplateColumns: "auto 1fr auto auto", gap: "0", fontSize: 12 }}>
+              <div style={S.thEntrega}>RAN</div>
+              <div style={S.thEntrega}>Equipo</div>
+              <div style={{ ...S.thEntrega, textAlign: "center" }}>Av.</div>
+              <div style={{ ...S.thEntrega, textAlign: "center" }}>Pend.</div>
+              {resumen.map((r) => (
+                <React.Fragment key={r.act.id}>
+                  <div style={S.tdEntrega}>
+                    <span className="mono" style={{ fontWeight: 700 }}>{r.act.ran || "—"}</span>
                   </div>
-                  <div style={{ fontSize: 13, color: "#141A21" }}>{p.nombre}</div>
-                  {p.nota && <div style={{ fontSize: 12, color: "#8A5A1E", fontStyle: "italic", marginTop: 2 }}>— {p.nota}</div>}
+                  <div style={S.tdEntrega}>
+                    <span style={{ fontSize: 10, fontWeight: 700, color: "#fff", background: r.act.linea === "Ensamble" ? "#2F6E8F" : "#A15A32", borderRadius: 3, padding: "1px 5px", marginRight: 5 }}>
+                      {r.act.linea === "Ensamble" ? "ENS" : "DES"}
+                    </span>
+                    {r.act.unidad || "—"}
+                  </div>
+                  <div style={{ ...S.tdEntrega, textAlign: "center", fontWeight: 800, color: r.avance === 100 ? "#1B7A4B" : r.avance >= 60 ? "#C9822E" : "#B3261E" }}>
+                    {r.avance}%
+                  </div>
+                  <div style={{ ...S.tdEntrega, textAlign: "center" }}>
+                    {r.pend.length > 0 ? (
+                      <span style={{ background: "#FDF0DC", color: "#8A5A1E", fontWeight: 800, borderRadius: 10, padding: "1px 7px" }}>{r.pend.length}</span>
+                    ) : (
+                      <span style={{ color: "#1B7A4B", fontWeight: 700 }}>✓</span>
+                    )}
+                  </div>
+                </React.Fragment>
+              ))}
+            </div>
+          </div>
+
+          {/* ── DETALLE POR RAN ── */}
+          <div style={{ ...S.sectionLabel, marginBottom: 8, marginTop: 4 }}>DETALLE POR EQUIPO</div>
+
+          {resumen.map((r) => {
+            const abierto = ranAbierto === r.act.id;
+            const lineaColor = r.act.linea === "Ensamble" ? "#2F6E8F" : "#A15A32";
+            return (
+              <div key={r.act.id} style={{ background: "#fff", border: "1px solid #E2E8F0", borderRadius: 10, marginBottom: 8, overflow: "hidden" }}>
+                <div
+                  onClick={() => setRanAbierto(abierto ? null : r.act.id)}
+                  style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", cursor: "pointer", background: abierto ? "#F1F5F9" : "#fff", userSelect: "none" }}
+                >
+                  <span style={{ fontSize: 10, fontWeight: 700, color: "#fff", background: lineaColor, borderRadius: 4, padding: "2px 6px", flexShrink: 0 }}>
+                    {r.act.linea === "Ensamble" ? "ENS" : "DES"}
+                  </span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div className="mono" style={{ fontSize: 13, fontWeight: 700, color: "#141A21" }}>
+                      RAN {r.act.ran || "sin N°"}
+                    </div>
+                    <div style={{ fontSize: 11, color: "#64748B", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {r.act.unidad || "—"}{r.cliente ? ` · ${r.cliente}` : ""}
+                    </div>
+                  </div>
+                  <div style={{ textAlign: "right", flexShrink: 0 }}>
+                    {r.pend.length > 0 ? (
+                      <div style={{ fontSize: 11, fontWeight: 800, color: "#8A5A1E" }}>{r.pend.length} pend.</div>
+                    ) : (
+                      <div style={{ fontSize: 11, fontWeight: 800, color: "#1B7A4B" }}>✓ al día</div>
+                    )}
+                    <div style={{ fontSize: 11, color: "#94A3B8" }}>{r.avance}%</div>
+                  </div>
+                  <span style={{ fontSize: 10, color: "#94A3B8" }}>{abierto ? "▼" : "▶"}</span>
                 </div>
-              ))
-            )}
-          </div>
 
-          <div style={S.section}>
-            <div style={S.sectionLabel}>ENTREGA EL TURNO</div>
-            <div style={S.fieldGroup}>
-              <label style={S.label}>Nombre</label>
-              <input style={S.input} placeholder="Nombre de quien entrega"
-                value={nombreSaliente} onChange={(e) => setNombreSaliente(e.target.value)} />
-            </div>
-            <Firma value={firmaSaliente} onChange={setFirmaSaliente} label="Firmar para entregar el turno" />
-          </div>
+                {abierto && (
+                  <div style={{ padding: "10px 12px", borderTop: "1px solid #E2E8F0" }}>
+                    {r.pend.length === 0 ? (
+                      <div style={{ fontSize: 12, color: "#1B7A4B", fontWeight: 600, marginBottom: 10 }}>
+                        Sin tareas pendientes en este equipo.
+                      </div>
+                    ) : (
+                      <>
+                        <div style={{ fontSize: 10, fontWeight: 700, color: "#8A5A1E", marginBottom: 6, letterSpacing: "0.05em" }}>
+                          PENDIENTE EN ESTE RAN
+                        </div>
+                        {r.pend.map((t) => (
+                          <div key={t.id} style={{ background: "#FFF8ED", border: "1px solid #E0A245", borderRadius: 6, padding: "6px 9px", marginBottom: 5 }}>
+                            <div style={{ fontSize: 12, color: "#141A21" }}>{t.nombre}</div>
+                            {t.notaPendiente && (
+                              <div style={{ fontSize: 11, color: "#8A5A1E", fontStyle: "italic", marginTop: 2 }}>— {t.notaPendiente}</div>
+                            )}
+                          </div>
+                        ))}
+                      </>
+                    )}
 
-          <div style={S.section}>
-            <div style={S.sectionLabel}>
-              RECIBE EL TURNO <span style={{ fontWeight: 400, textTransform: "none", opacity: 0.6 }}>(opcional)</span>
+                    <label style={{ ...S.label, marginTop: 8 }}>Instrucción para el turno entrante</label>
+                    <textarea
+                      style={{ ...S.textarea, minHeight: 56, fontSize: 13 }}
+                      placeholder="Qué debe hacer el próximo turno con este equipo..."
+                      value={r.act.notaTraspaso || ""}
+                      onChange={(e) => updateActividad(r.act.id, "notaTraspaso", e.target.value)}
+                    />
+                  </div>
+                )}
+              </div>
+            );
+          })}
+
+          {/* ── EMISIÓN ── */}
+          <div style={{ ...S.section, marginTop: 16 }}>
+            <div style={S.sectionLabel}>EMISIÓN DEL ACTA</div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+              <div>
+                <label style={S.label}>Emitido por</label>
+                <input style={S.input} placeholder="Nombre de quien emite"
+                  value={nombreSaliente} onChange={(e) => setNombreSaliente(e.target.value)} />
+              </div>
+              <div>
+                <label style={S.label}>Dirigido a</label>
+                <input style={S.input} placeholder="Supervisor / turno entrante"
+                  value={nombreEntrante} onChange={(e) => setNombreEntrante(e.target.value)} />
+              </div>
             </div>
-            <div style={S.fieldGroup}>
-              <label style={S.label}>Nombre</label>
-              <input style={S.input} placeholder="Nombre de quien recibe"
-                value={nombreEntrante} onChange={(e) => setNombreEntrante(e.target.value)} />
+            <div style={{ fontSize: 11, color: "#94A3B8", marginTop: 8, lineHeight: 1.5 }}>
+              Estos datos y el código de verificación quedan impresos al pie del acta.
             </div>
-            <Firma value={firmaEntrante} onChange={setFirmaEntrante} label="Firmar para confirmar recepción" />
           </div>
 
           {entregaHecha && (
@@ -791,8 +899,7 @@ export default function ReporteTurno() {
           )}
 
           <button
-            style={{ ...S.btnPrimary, background: firmaSaliente ? "#C9822E" : "#CBD5E1", marginBottom: 10 }}
-            disabled={!firmaSaliente}
+            style={{ ...S.btnPrimary, background: "#C9822E", marginBottom: 10 }}
             onClick={() => {
               setEntregaHecha(new Date().toLocaleString("es-CL"));
               compartirEntrega();
@@ -801,7 +908,7 @@ export default function ReporteTurno() {
             📤 Enviar entrega al turno entrante
           </button>
           <button style={{ ...S.shareBtn, width: "100%" }} onClick={handleExportPDF}>
-            📄 Exportar PDF firmado
+            📄 Exportar PDF del acta
           </button>
           <div style={{ fontSize: 11, color: "#94A3B8", textAlign: "center", marginTop: 10, lineHeight: 1.5 }}>
             El archivo se envía por WhatsApp o correo. Quien recibe lo abre con el botón 📂 de la pantalla principal.
@@ -811,6 +918,7 @@ export default function ReporteTurno() {
     );
   }
 
+
   // ── FORM ───────────────────────────────────────────────────────────────────
   return (
     <div style={S.root}>
@@ -818,7 +926,7 @@ export default function ReporteTurno() {
         <div style={S.topBar}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <div style={{ fontSize: 28 }}>⚙️</div>
+              <div style={{ fontSize: 26 }}>📋</div>
               <div>
                 <div style={S.topBarTitle}>Reporte de Turno</div>
                 <div style={S.topBarSub}>Informe diario de actividades</div>
@@ -1099,8 +1207,8 @@ export default function ReporteTurno() {
         })}
 
         <button style={S.addBtn} onClick={addActividad}>+ Agregar actividad</button>
-        <button style={S.btnPrimary} onClick={() => setStep("preview")}>
-          Ver resumen del reporte →
+        <button style={S.btnPrimary} onClick={() => setStep("entrega")}>
+          Entregar turno →
         </button>
       </div>
     </div>
@@ -1108,6 +1216,8 @@ export default function ReporteTurno() {
 }
 
 const S = {
+  thEntrega: { fontSize: 10, fontWeight: 800, color: "#64748B", letterSpacing: "0.05em", padding: "6px 8px", borderBottom: "1.5px solid #CBD5E1", textTransform: "uppercase" },
+  tdEntrega: { fontSize: 12, color: "#141A21", padding: "7px 8px", borderBottom: "1px solid #F1F5F9", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
   root: { minHeight: "100vh", background: "#F8FAFC", fontFamily: "'Segoe UI', system-ui, sans-serif", paddingBottom: 40 },
   container: { maxWidth: 680, margin: "0 auto", padding: "0 16px" },
   topBar: { background: "#141A21", margin: "0 -16px 24px", padding: "18px 20px" },
