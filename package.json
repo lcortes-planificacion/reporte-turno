@@ -1,43 +1,16 @@
--- Reporte de Turno — tabla de entregas de turno
--- Ejecutar este script UNA VEZ en: Supabase → SQL Editor → New query
--- Es una tabla nueva e independiente (no toca ninguna tabla existente).
-
-create table if not exists public.reporte_turno_entregas (
-  id uuid primary key default gen_random_uuid(),
-  created_at timestamptz not null default now(),
-  fecha date,
-  turno text,
-  linea text,
-  ran text,
-  unidad text,
-  cliente text,
-  tecnicos text,
-  supervisor text,
-  planificacion text,
-  avance_promedio int,
-  actividades jsonb not null,
-  firma_saliente text,
-  firma_entrante text,
-  nombre_saliente text,
-  nombre_entrante text,
-  device_info text
-);
-
-create index if not exists reporte_turno_entregas_created_at_idx
-  on public.reporte_turno_entregas (created_at desc);
-
-alter table public.reporte_turno_entregas enable row level security;
-
--- Política simple: cualquiera con la clave pública (anon) del proyecto
--- puede insertar y leer. Es lo mismo nivel de acceso que ya usa
--- Control_Turno_PIE. Si más adelante se quiere restringir por usuario
--- autenticado, se puede reemplazar esta política por una basada en auth.uid().
-create policy "reporte_turno_entregas_insert_anon"
-  on public.reporte_turno_entregas for insert
-  to anon
-  with check (true);
-
-create policy "reporte_turno_entregas_select_anon"
-  on public.reporte_turno_entregas for select
-  to anon
-  using (true);
+{
+  "name": "reporte-turno",
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "react": "^19.2.6",
+    "react-dom": "^19.2.6",
+    "vite": "^6.0.2",
+    "@vitejs/plugin-react": "^4.3.4"
+  }
+}
