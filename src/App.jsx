@@ -1,5 +1,107 @@
 import { useState, useRef, useEffect } from "react";
 
+// ─────────────────────────────────────────────────────────────────────────────
+// FIRMA DIGITAL (componente inline, no requiere archivos extra)
+// ─────────────────────────────────────────────────────────────────────────────
+function Firma({ value, onChange, label }) {
+  const canvasRef = useRef(null);
+  const dibujando = useRef(false);
+  const ultimo = useRef(null);
+  const [tieneTrazo, setTieneTrazo] = useState(!!value);
+
+  const preparar = () => {
+    const c = canvasRef.current;
+    if (!c) return null;
+    const rect = c.getBoundingClientRect();
+    if (!rect.width) return null;
+    const ratio = window.devicePixelRatio || 1;
+    c.width = rect.width * ratio;
+    c.height = rect.height * ratio;
+    const ctx = c.getContext("2d");
+    ctx.scale(ratio, ratio);
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.lineWidth = 2.4;
+    ctx.strokeStyle = "#141A21";
+    return ctx;
+  };
+
+  useEffect(() => {
+    const ctx = preparar();
+    if (ctx && value) {
+      const img = new Image();
+      img.onload = () => {
+        const rect = canvasRef.current.getBoundingClientRect();
+        ctx.drawImage(img, 0, 0, rect.width, rect.height);
+      };
+      img.src = value;
+    }
+  }, []);
+
+  const punto = (e) => {
+    const rect = canvasRef.current.getBoundingClientRect();
+    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+  };
+  const iniciar = (e) => {
+    e.preventDefault();
+    canvasRef.current.setPointerCapture?.(e.pointerId);
+    dibujando.current = true;
+    ultimo.current = punto(e);
+  };
+  const mover = (e) => {
+    if (!dibujando.current) return;
+    e.preventDefault();
+    const ctx = canvasRef.current.getContext("2d");
+    const p = punto(e);
+    ctx.beginPath();
+    ctx.moveTo(ultimo.current.x, ultimo.current.y);
+    ctx.lineTo(p.x, p.y);
+    ctx.stroke();
+    ultimo.current = p;
+    if (!tieneTrazo) setTieneTrazo(true);
+  };
+  const terminar = () => {
+    if (!dibujando.current) return;
+    dibujando.current = false;
+    onChange?.(canvasRef.current.toDataURL("image/png"));
+  };
+  const limpiar = () => {
+    const c = canvasRef.current;
+    const rect = c.getBoundingClientRect();
+    c.getContext("2d").clearRect(0, 0, rect.width, rect.height);
+    setTieneTrazo(false);
+    onChange?.(null);
+  };
+
+  return (
+    <div>
+      <canvas
+        ref={canvasRef}
+        onPointerDown={iniciar}
+        onPointerMove={mover}
+        onPointerUp={terminar}
+        onPointerLeave={terminar}
+        style={{
+          touchAction: "none", width: "100%", height: 140, display: "block",
+          background: "#F8FAFC", borderRadius: 8,
+          border: tieneTrazo ? "1.5px solid #1B7A4B" : "1.5px dashed #C7CDD3",
+        }}
+      />
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 4 }}>
+        <span style={{ fontSize: 11, fontWeight: 600, color: tieneTrazo ? "#1B7A4B" : "#94A3B8" }}>
+          {tieneTrazo ? "✓ Firmado" : label}
+        </span>
+        {tieneTrazo && (
+          <button onClick={limpiar} style={{ background: "none", border: "none", color: "#B3261E", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
+            ✕ Borrar
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+
 const TURNOS = ["A", "B"];
 const LINEAS = ["Ensamble", "Desarme"];
 
@@ -178,6 +280,31 @@ export default function ReporteTurno() {
   const galleryRefs = useRef({});
   const importRef = useRef();
 
+  // ── Entrega de turno ──────────────────────────────────────────────────────
+  const [nombreSaliente, setNombreSaliente] = useState("");
+  const [nombreEntrante, setNombreEntrante] = useState("");
+  const [firmaSaliente, setFirmaSaliente] = useState(null);
+  const [firmaEntrante, setFirmaEntrante] = useState(null);
+  const [entregaHecha, setEntregaHecha] = useState(null);
+
+  // ── App instalable en el celular (PWA) ────────────────────────────────────
+  const [instalador, setInstalador] = useState(null);
+  useEffect(() => {
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("/sw.js").catch(() => {});
+    }
+    const onPrompt = (e) => { e.preventDefault(); setInstalador(e); };
+    window.addEventListener("beforeinstallprompt", onPrompt);
+    return () => window.removeEventListener("beforeinstallprompt", onPrompt);
+  }, []);
+
+  const instalarApp = async () => {
+    if (!instalador) return;
+    instalador.prompt();
+    await instalador.userChoice;
+    setInstalador(null);
+  };
+
   useEffect(() => {
     try {
       const sinFotos = actividades.map((a) => ({ ...a, fotos: [] }));
@@ -289,6 +416,13 @@ export default function ReporteTurno() {
           setActividades(datos);
           setStep("form");
           alert("✅ Reporte cargado correctamente");
+        } else if (datos?.tipo === "entrega-turno" && Array.isArray(datos.actividades)) {
+          setActividades(datos.actividades);
+          setNombreSaliente(datos.entrega || "");
+          setFirmaSaliente(datos.firmaSaliente || null);
+          setStep("form");
+          const de = datos.entrega ? ` de ${datos.entrega}` : "";
+          alert(`✅ Entrega de turno${de} cargada.\n\nRevisa los pendientes y firma la recepción en "Entrega de turno".`);
         } else {
           alert("❌ Archivo inválido");
         }
@@ -298,6 +432,42 @@ export default function ReporteTurno() {
     };
     reader.readAsText(file);
     e.target.value = "";
+  };
+
+  // ── Compartir la entrega (WhatsApp, correo, etc.) ────────────────────────
+  // En vez de un servidor, la entrega viaja como archivo por donde el
+  // equipo ya se comunica. El turno entrante lo abre con el botón 📂.
+  const compartirEntrega = async () => {
+    const datos = actividades.map((a) => ({ ...a, fotos: [] }));
+    const paquete = {
+      tipo: "entrega-turno",
+      generado: new Date().toISOString(),
+      entrega: nombreSaliente || null,
+      recibe: nombreEntrante || null,
+      firmaSaliente,
+      firmaEntrante,
+      actividades: datos,
+    };
+    const fecha = new Date().toLocaleDateString("es-CL").replace(/\//g, "-");
+    const nombreArchivo = `entrega-turno-${fecha}.json`;
+    const blob = new Blob([JSON.stringify(paquete, null, 2)], { type: "application/json" });
+    const file = new File([blob], nombreArchivo, { type: "application/json" });
+
+    if (navigator.canShare?.({ files: [file] })) {
+      try {
+        await navigator.share({ files: [file], title: "Entrega de turno" });
+        return;
+      } catch {
+        return; // el usuario canceló
+      }
+    }
+    // Si el celular no permite compartir archivos, se descarga igual.
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = nombreArchivo;
+    link.click();
+    URL.revokeObjectURL(url);
   };
 
   // ── PDF ────────────────────────────────────────────────────────────────────
@@ -321,10 +491,10 @@ export default function ReporteTurno() {
         lista.length
           ? `<div style="margin-bottom:7px;">
               <div style="font-size:8px;font-weight:700;color:${color};margin-bottom:3px;">${titulo}</div>
-              <div style="${resaltar ? "background:#FFFBEB;border:1px solid #FCD34D;border-radius:6px;padding:5px 7px;" : ""}display:grid;grid-template-columns:1fr 1fr 1fr;gap:1px 8px;">
+              <div style="${resaltar ? "background:#FFF8ED;border:1px solid #E0A245;border-radius:6px;padding:5px 7px;" : ""}display:grid;grid-template-columns:1fr 1fr 1fr;gap:1px 8px;">
                 ${lista.map((t) => `
-                  <div style="font-size:${resaltar ? "10px" : "9px"};font-weight:${resaltar ? "600" : "400"};color:${resaltar ? "#92400E" : "#1E293B"};padding:${resaltar ? "2px 0" : "1px 0"};word-break:break-word;white-space:normal;">
-                    ${resaltar ? "⚠️" : "·"} ${t.nombre}${t.notaPendiente ? ` <span style="color:#B45309;font-style:italic;">— ${t.notaPendiente}</span>` : ""}
+                  <div style="font-size:${resaltar ? "10px" : "9px"};font-weight:${resaltar ? "600" : "400"};color:${resaltar ? "#8A5A1E" : "#141A21"};padding:${resaltar ? "2px 0" : "1px 0"};word-break:break-word;white-space:normal;">
+                    ${resaltar ? "⚠️" : "·"} ${t.nombre}${t.notaPendiente ? ` <span style="color:#8A5A1E;font-style:italic;">— ${t.notaPendiente}</span>` : ""}
                   </div>`).join("")}
               </div>
             </div>` : "";
@@ -354,7 +524,7 @@ export default function ReporteTurno() {
       const breakStyle = i === 0 ? "" : "break-before:page;page-break-before:always;";
       return `
         <div style="border:1px solid #E2E8F0;border-radius:10px;overflow:hidden;${breakStyle}">
-          <div style="background:#1E293B;padding:10px 14px;display:flex;align-items:center;gap:10px;">
+          <div style="background:#141A21;padding:10px 14px;display:flex;align-items:center;gap:10px;">
             <div style="font-size:16px;">⚙️</div>
             <div>
               <div style="color:#F1F5F9;font-weight:800;font-size:13px;">Turno ${a.turno} — ${a.linea}${nroLinea} — Actividad ${i + 1}</div>
@@ -362,23 +532,23 @@ export default function ReporteTurno() {
             </div>
           </div>
           <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:#E2E8F0;">
-            ${a.ran ? `<div style="background:#FEF9C3;padding:5px 8px;"><div style="font-size:7px;font-weight:700;color:#92400E;">RAN</div><div style="font-size:10px;font-weight:600;color:#78350F;">${a.ran}</div></div>` : ""}
+            ${a.ran ? `<div style="background:#FDF0DC;padding:5px 8px;"><div style="font-size:7px;font-weight:700;color:#8A5A1E;">RAN</div><div style="font-size:10px;font-weight:600;color:#78350F;">${a.ran}</div></div>` : ""}
             ${a.unidad ? `<div style="background:#EFF6FF;padding:5px 8px;"><div style="font-size:7px;font-weight:700;color:#1D4ED8;">UNIDAD / EQUIPO</div><div style="font-size:10px;font-weight:600;color:#1E40AF;">${a.unidad}</div></div>` : ""}
             ${clienteLabel ? `<div style="background:#F3E8FF;padding:5px 8px;"><div style="font-size:7px;font-weight:700;color:#6B21A8;">CLIENTE</div><div style="font-size:10px;font-weight:600;color:#581C87;">${clienteLabel}</div></div>` : ""}
             ${a.tecnicos ? `<div style="background:#F0FDF4;padding:5px 8px;"><div style="font-size:7px;font-weight:700;color:#166534;">TÉCNICOS</div><div style="font-size:10px;font-weight:600;color:#14532D;">${a.tecnicos}</div></div>` : ""}
-            ${supervisorLabel ? `<div style="background:#F8FAFC;padding:5px 8px;"><div style="font-size:7px;font-weight:700;color:#475569;">SUPERVISOR</div><div style="font-size:10px;font-weight:600;color:#1E293B;">${supervisorLabel}</div></div>` : ""}
+            ${supervisorLabel ? `<div style="background:#F8FAFC;padding:5px 8px;"><div style="font-size:7px;font-weight:700;color:#475569;">SUPERVISOR</div><div style="font-size:10px;font-weight:600;color:#141A21;">${supervisorLabel}</div></div>` : ""}
             ${planificacionLabel ? `<div style="background:#FFF7ED;padding:5px 8px;"><div style="font-size:7px;font-weight:700;color:#9A3412;">PLANIFICACIÓN</div><div style="font-size:10px;font-weight:600;color:#7C2D12;">${planificacionLabel}</div></div>` : ""}
           </div>
           <div style="padding:10px 14px;">
             <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
               <div style="font-size:8px;font-weight:700;color:#64748B;min-width:45px;">AVANCE</div>
               <div style="flex:1;background:#E2E8F0;border-radius:99px;height:7px;overflow:hidden;">
-                <div style="height:100%;border-radius:99px;width:${avance}%;background:${avance === 100 ? "#10B981" : avance >= 60 ? "#F59E0B" : "#EF4444"};"></div>
+                <div style="height:100%;border-radius:99px;width:${avance}%;background:${avance === 100 ? "#1B7A4B" : avance >= 60 ? "#C9822E" : "#B3261E"};"></div>
               </div>
-              <span style="font-size:12px;font-weight:800;color:#1E293B;min-width:34px;text-align:right;">${avance}%</span>
+              <span style="font-size:12px;font-weight:800;color:#141A21;min-width:34px;text-align:right;">${avance}%</span>
             </div>
             ${renderTareasPDF(tareasFinalizadas, "✅ FINALIZADO", "#166534")}
-            ${renderTareasPDF(tareasPendientesConNota, "⏳ PENDIENTE CON NOTA", "#B45309", true)}
+            ${renderTareasPDF(tareasPendientesConNota, "⏳ PENDIENTE CON NOTA", "#8A5A1E", true)}
             ${renderPendientesSinNotaPDF(tareasPendientesSinNota)}
             ${renderTareasPDF(tareasNoAplica, "— NO APLICA", "#94A3B8")}
             ${a.observaciones ? `<div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:6px;padding:5px 8px;font-size:9px;color:#475569;margin-top:6px;">📝 ${a.observaciones}</div>` : ""}
@@ -398,7 +568,7 @@ export default function ReporteTurno() {
 <title>Reporte Diario SMAN</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  html, body { width: 100%; background: white; font-family: 'Segoe UI', system-ui, sans-serif; color: #1E293B; }
+  html, body { width: 100%; background: white; font-family: 'Segoe UI', system-ui, sans-serif; color: #141A21; }
   @page { margin: 10mm; size: letter; }
   @media print { * { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
   .actividad { page-break-before: always; }
@@ -406,7 +576,7 @@ export default function ReporteTurno() {
 </style>
 </head>
 <body>
-  <div style="background:#1E293B;padding:12px 16px;border-radius:8px 8px 0 0;display:flex;align-items:center;justify-content:space-between;">
+  <div style="background:#141A21;padding:12px 16px;border-radius:8px 8px 0 0;display:flex;align-items:center;justify-content:space-between;">
     <div style="display:flex;align-items:center;gap:10px;">
       <div style="font-size:20px;">⚙️</div>
       <div>
@@ -419,8 +589,24 @@ export default function ReporteTurno() {
 
     </div>
   </div>
-  <div style="height:3px;background:#0EA5E9;margin-bottom:12px;"></div>
+  <div style="height:3px;background:#2F6E8F;margin-bottom:12px;"></div>
   ${actividadesHTML}
+  ${firmaSaliente || firmaEntrante ? `
+  <div style="margin-top:14px;border:1px solid #E2E8F0;border-radius:10px;padding:12px 14px;break-inside:avoid;">
+    <div style="font-size:9px;font-weight:700;color:#64748B;margin-bottom:8px;letter-spacing:0.06em;">ENTREGA DE TURNO</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;">
+      <div>
+        <div style="font-size:8px;font-weight:700;color:#64748B;margin-bottom:3px;">ENTREGA</div>
+        ${firmaSaliente ? `<img src="${firmaSaliente}" style="width:100%;max-height:70px;object-fit:contain;" />` : `<div style="height:70px;"></div>`}
+        <div style="border-top:1px solid #94A3B8;padding-top:3px;font-size:10px;color:#141A21;font-weight:600;">${nombreSaliente || "&nbsp;"}</div>
+      </div>
+      <div>
+        <div style="font-size:8px;font-weight:700;color:#64748B;margin-bottom:3px;">RECIBE</div>
+        ${firmaEntrante ? `<img src="${firmaEntrante}" style="width:100%;max-height:70px;object-fit:contain;" />` : `<div style="height:70px;"></div>`}
+        <div style="border-top:1px solid #94A3B8;padding-top:3px;font-size:10px;color:#141A21;font-weight:600;">${nombreEntrante || "&nbsp;"}</div>
+      </div>
+    </div>
+  </div>` : ""}
   <script>window.onload = () => { window.print(); }<\/script>
 </body>
 </html>`;
@@ -444,11 +630,15 @@ export default function ReporteTurno() {
           </div>
 
           <div style={S.shareBar}>
-            <button style={{ ...S.shareBtn, background: "#1E293B", color: "#fff", border: "none" }} onClick={handleExportPDF}>
+            <button style={{ ...S.shareBtn, background: "#141A21", color: "#fff", border: "none" }} onClick={handleExportPDF}>
               📄 Exportar PDF
             </button>
             <button style={S.shareBtn} onClick={() => setStep("form")}>← Editar</button>
           </div>
+
+          <button style={{ ...S.btnPrimary, background: "#C9822E", marginBottom: 20 }} onClick={() => setStep("entrega")}>
+            🤝 Entregar turno →
+          </button>
 
           {actividades.map((a, i) => {
             const avance = calcAvance(a.tareas);
@@ -469,7 +659,7 @@ export default function ReporteTurno() {
                   </div>
                 </div>
                 <div style={S.previewCardMeta}>
-                  {a.ran && <span style={{ ...S.metaChip, background: "#FEF3C7", color: "#92400E" }}>📋 RAN: {a.ran}</span>}
+                  {a.ran && <span style={{ ...S.metaChip, background: "#FDF0DC", color: "#8A5A1E" }}>📋 RAN: {a.ran}</span>}
                   {a.unidad && <span style={{ ...S.metaChip, background: "#EFF6FF", color: "#1D4ED8" }}>🔧 {a.unidad}</span>}
                   {clienteLabel && <span style={{ ...S.metaChip, background: "#F3E8FF", color: "#6B21A8" }}>🏢 {clienteLabel}</span>}
                   {a.tecnicos && <span style={{ ...S.metaChip, background: "#F0FDF4", color: "#166534" }}>👷 {a.tecnicos}</span>}
@@ -480,7 +670,7 @@ export default function ReporteTurno() {
                   <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
                     <span style={S.previewLabel}>AVANCE</span>
                     <div style={{ flex: 1, background: "#E2E8F0", borderRadius: 99, height: 8, overflow: "hidden" }}>
-                      <div style={{ height: "100%", borderRadius: 99, width: `${avance}%`, background: avance === 100 ? "#10B981" : avance >= 60 ? "#F59E0B" : "#EF4444" }} />
+                      <div style={{ height: "100%", borderRadius: 99, width: `${avance}%`, background: avance === 100 ? "#1B7A4B" : avance >= 60 ? "#C9822E" : "#B3261E" }} />
                     </div>
                     <span style={S.avancePct}>{avance}%</span>
                   </div>
@@ -492,14 +682,14 @@ export default function ReporteTurno() {
                     <div key={t.id} style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "5px 0", borderBottom: "1px solid #F1F5F9" }}>
                       <span style={{
                         fontSize: 11, fontWeight: 700, padding: "2px 7px", borderRadius: 20, flexShrink: 0, marginTop: 1,
-                        background: t.estado === "finalizado" ? "#D1FAE5" : t.estado === "noaplica" ? "#F1F5F9" : "#FEF3C7",
-                        color: t.estado === "finalizado" ? "#065F46" : t.estado === "noaplica" ? "#94A3B8" : "#92400E",
+                        background: t.estado === "finalizado" ? "#DCF2E5" : t.estado === "noaplica" ? "#F1F5F9" : "#FDF0DC",
+                        color: t.estado === "finalizado" ? "#1B7A4B" : t.estado === "noaplica" ? "#94A3B8" : "#8A5A1E",
                       }}>
                         {t.estado === "finalizado" ? "✅" : t.estado === "noaplica" ? "N/A" : "⏳"}
                       </span>
                       <div style={{ flex: 1 }}>
-                        <span style={{ fontSize: 13, color: t.estado === "noaplica" ? "#94A3B8" : "#1E293B" }}>{t.nombre}</span>
-                        {t.notaPendiente && <div style={{ fontSize: 12, color: "#B45309", marginTop: 2 }}>{t.notaPendiente}</div>}
+                        <span style={{ fontSize: 13, color: t.estado === "noaplica" ? "#94A3B8" : "#141A21" }}>{t.nombre}</span>
+                        {t.notaPendiente && <div style={{ fontSize: 12, color: "#8A5A1E", marginTop: 2 }}>{t.notaPendiente}</div>}
                       </div>
                     </div>
                     )
@@ -523,6 +713,104 @@ export default function ReporteTurno() {
     );
   }
 
+  // ── ENTREGA DE TURNO ───────────────────────────────────────────────────────
+  if (step === "entrega") {
+    const avancePromedio = actividades.length
+      ? Math.round(actividades.reduce((acc, a) => acc + calcAvance(a.tareas), 0) / actividades.length)
+      : 0;
+    const pendientes = actividades.flatMap((a) =>
+      a.tareas.filter((t) => !t.titulo && t.estado === "pendiente")
+        .map((t) => ({ ran: a.ran, linea: a.linea, nombre: t.nombre, nota: t.notaPendiente }))
+    );
+
+    return (
+      <div style={S.root}>
+        <div style={S.container}>
+          <div style={S.topBar}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <div style={{ fontSize: 26 }}>🤝</div>
+              <div>
+                <div style={S.topBarTitle}>Entrega de Turno</div>
+                <div style={S.topBarSub}>
+                  {actividades.length} actividad{actividades.length !== 1 ? "es" : ""} · {avancePromedio}% avance
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <button style={{ ...S.shareBtn, width: "100%", marginBottom: 14 }} onClick={() => setStep("preview")}>
+            ← Volver al resumen
+          </button>
+
+          {/* Lo que queda pendiente es lo más importante de un traspaso */}
+          <div style={S.section}>
+            <div style={S.sectionLabel}>QUEDA PENDIENTE PARA EL PRÓXIMO TURNO</div>
+            {pendientes.length === 0 ? (
+              <div style={{ fontSize: 13, color: "#1B7A4B", fontWeight: 600 }}>
+                ✓ Sin pendientes registrados
+              </div>
+            ) : (
+              pendientes.map((p, idx) => (
+                <div key={idx} style={{ background: "#FFF8ED", border: "1px solid #E0A245", borderRadius: 8, padding: "8px 10px", marginBottom: 6 }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: "#8A5A1E", marginBottom: 2 }}>
+                    {p.ran ? `RAN ${p.ran} · ` : ""}{p.linea}
+                  </div>
+                  <div style={{ fontSize: 13, color: "#141A21" }}>{p.nombre}</div>
+                  {p.nota && <div style={{ fontSize: 12, color: "#8A5A1E", fontStyle: "italic", marginTop: 2 }}>— {p.nota}</div>}
+                </div>
+              ))
+            )}
+          </div>
+
+          <div style={S.section}>
+            <div style={S.sectionLabel}>ENTREGA EL TURNO</div>
+            <div style={S.fieldGroup}>
+              <label style={S.label}>Nombre</label>
+              <input style={S.input} placeholder="Nombre de quien entrega"
+                value={nombreSaliente} onChange={(e) => setNombreSaliente(e.target.value)} />
+            </div>
+            <Firma value={firmaSaliente} onChange={setFirmaSaliente} label="Firmar para entregar el turno" />
+          </div>
+
+          <div style={S.section}>
+            <div style={S.sectionLabel}>
+              RECIBE EL TURNO <span style={{ fontWeight: 400, textTransform: "none", opacity: 0.6 }}>(opcional)</span>
+            </div>
+            <div style={S.fieldGroup}>
+              <label style={S.label}>Nombre</label>
+              <input style={S.input} placeholder="Nombre de quien recibe"
+                value={nombreEntrante} onChange={(e) => setNombreEntrante(e.target.value)} />
+            </div>
+            <Firma value={firmaEntrante} onChange={setFirmaEntrante} label="Firmar para confirmar recepción" />
+          </div>
+
+          {entregaHecha && (
+            <div style={{ background: "#DCF2E5", border: "1px solid #1B7A4B", borderRadius: 8, padding: "10px 12px", fontSize: 12, color: "#1B7A4B", fontWeight: 600, marginBottom: 12, textAlign: "center" }}>
+              ✓ Entrega registrada — {entregaHecha}
+            </div>
+          )}
+
+          <button
+            style={{ ...S.btnPrimary, background: firmaSaliente ? "#C9822E" : "#CBD5E1", marginBottom: 10 }}
+            disabled={!firmaSaliente}
+            onClick={() => {
+              setEntregaHecha(new Date().toLocaleString("es-CL"));
+              compartirEntrega();
+            }}
+          >
+            📤 Enviar entrega al turno entrante
+          </button>
+          <button style={{ ...S.shareBtn, width: "100%" }} onClick={handleExportPDF}>
+            📄 Exportar PDF firmado
+          </button>
+          <div style={{ fontSize: 11, color: "#94A3B8", textAlign: "center", marginTop: 10, lineHeight: 1.5 }}>
+            El archivo se envía por WhatsApp o correo. Quien recibe lo abre con el botón 📂 de la pantalla principal.
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // ── FORM ───────────────────────────────────────────────────────────────────
   return (
     <div style={S.root}>
@@ -538,6 +826,9 @@ export default function ReporteTurno() {
             </div>
             <div style={{ display: "flex", gap: 6 }}>
               <input type="file" accept=".json" style={{ display: "none" }} ref={importRef} onChange={importarJSON} />
+              {instalador && (
+                <button onClick={instalarApp} style={{ ...S.clearBtn, background: "#C9822E", border: "none", color: "#141A21", fontWeight: 700 }} title="Instalar como app">⬇️ Instalar</button>
+              )}
               <button onClick={exportarJSON} style={S.clearBtn} title="Guardar como archivo">💾</button>
               <button onClick={() => importRef.current?.click()} style={S.clearBtn} title="Cargar archivo">📂</button>
               <button onClick={limpiarTodo} style={S.clearBtn} title="Nuevo reporte">🗑</button>
@@ -550,8 +841,8 @@ export default function ReporteTurno() {
           const abierta = actividadAbierta === a.id;
           const clienteLabel = a.cliente === "__manual__" ? a.clienteManual : a.cliente;
           const nroLinea = a.nroLinea ? ` N°${a.nroLinea}` : "";
-          const lineaColor = a.linea === "Ensamble" ? "#0EA5E9" : "#8B5CF6";
-          const avanceColor = avance === 100 ? "#10B981" : avance >= 60 ? "#F59E0B" : "#EF4444";
+          const lineaColor = a.linea === "Ensamble" ? "#2F6E8F" : "#A15A32";
+          const avanceColor = avance === 100 ? "#1B7A4B" : avance >= 60 ? "#C9822E" : "#B3261E";
           return (
             <div key={a.id} style={{ background:"#fff", borderRadius:10, marginBottom:6, border:"1px solid #E2E8F0", overflow:"hidden" }}>
 
@@ -562,11 +853,11 @@ export default function ReporteTurno() {
                   <button disabled={i===actividades.length-1} onClick={()=>moverActividad(a.id,1)} style={{ flex:1, width:28, border:"none", background:"transparent", cursor:i===actividades.length-1?"default":"pointer", color:i===actividades.length-1?"#CBD5E1":"#64748B", fontSize:13 }}>▼</button>
                 </div>
                 <div onClick={()=>setActividadAbierta(abierta?null:a.id)} style={{ flex:1, display:"flex", alignItems:"center", gap:8, padding:"9px 11px", cursor:"pointer", background:abierta?"#F1F5F9":"#fff", userSelect:"none", minWidth:0 }}>
-                  <div style={{ background:abierta?"#1E293B":"#E2E8F0", color:abierta?"#fff":"#64748B", borderRadius:5, width:22, height:22, flexShrink:0, display:"flex", alignItems:"center", justifyContent:"center", fontSize:11, fontWeight:700 }}>{i+1}</div>
+                  <div style={{ background:abierta?"#141A21":"#E2E8F0", color:abierta?"#fff":"#64748B", borderRadius:5, width:22, height:22, flexShrink:0, display:"flex", alignItems:"center", justifyContent:"center", fontSize:11, fontWeight:700 }}>{i+1}</div>
                   <div style={{ flex:1, minWidth:0 }}>
                     <div style={{ display:"flex", alignItems:"center", gap:4, flexWrap:"wrap" }}>
                       <span style={{ fontSize:10, fontWeight:700, color:"#fff", background:lineaColor, borderRadius:4, padding:"1px 6px", flexShrink:0 }}>{a.linea}{nroLinea}</span>
-                      {a.ran && <span style={{ fontSize:12, fontWeight:700, color:"#1E293B" }}>RAN {a.ran}</span>}
+                      {a.ran && <span style={{ fontSize:12, fontWeight:700, color:"#141A21" }}>RAN {a.ran}</span>}
                       {a.unidad && <span style={{ fontSize:11, color:"#64748B" }}>· {a.unidad}</span>}
                     </div>
                     {clienteLabel && <div style={{ fontSize:10, color:"#94A3B8", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{clienteLabel}</div>}
@@ -598,9 +889,9 @@ export default function ReporteTurno() {
                     {LINEAS.map(l => (
                       <button key={l} onClick={() => cambiarLinea(a.id,l)} style={{
                         flex:1, border:"1.5px solid", borderRadius:7, fontSize:11, fontWeight:700, cursor:"pointer",
-                        background: a.linea===l?(l==="Ensamble"?"#0EA5E9":"#8B5CF6"):"#F8FAFC",
+                        background: a.linea===l?(l==="Ensamble"?"#2F6E8F":"#A15A32"):"#F8FAFC",
                         color: a.linea===l?"#fff":"#64748B",
-                        borderColor: a.linea===l?(l==="Ensamble"?"#0EA5E9":"#8B5CF6"):"#E2E8F0",
+                        borderColor: a.linea===l?(l==="Ensamble"?"#2F6E8F":"#A15A32"):"#E2E8F0",
                       }}>{l==="Ensamble"?"Ens.":"Des."}</button>
                     ))}
                   </div>
@@ -611,9 +902,9 @@ export default function ReporteTurno() {
                     {TURNOS.map(t => (
                       <button key={t} onClick={() => updateActividad(a.id,"turno",t)} style={{
                         flex:1, border:"1.5px solid", borderRadius:7, fontSize:12, fontWeight:700, cursor:"pointer",
-                        background: a.turno===t?"#1E293B":"#F8FAFC",
+                        background: a.turno===t?"#141A21":"#F8FAFC",
                         color: a.turno===t?"#fff":"#64748B",
-                        borderColor: a.turno===t?"#1E293B":"#E2E8F0",
+                        borderColor: a.turno===t?"#141A21":"#E2E8F0",
                       }}>T{t}</button>
                     ))}
                   </div>
@@ -694,7 +985,7 @@ export default function ReporteTurno() {
                 <div style={S.sectionLabel}>ACTIVIDADES DEL TURNO</div>
                 <div style={{
                   fontSize: 14, fontWeight: 800,
-                  color: avance === 100 ? "#10B981" : avance >= 60 ? "#F59E0B" : "#64748B"
+                  color: avance === 100 ? "#1B7A4B" : avance >= 60 ? "#C9822E" : "#64748B"
                 }}>
                   {avance}%
                 </div>
@@ -704,7 +995,7 @@ export default function ReporteTurno() {
                 <div style={{
                   height: "100%", borderRadius: 99, transition: "width 0.3s",
                   width: `${avance}%`,
-                  background: avance === 100 ? "#10B981" : avance >= 60 ? "#F59E0B" : "#EF4444"
+                  background: avance === 100 ? "#1B7A4B" : avance >= 60 ? "#C9822E" : "#B3261E"
                 }} />
               </div>
 
@@ -729,12 +1020,12 @@ export default function ReporteTurno() {
                   return (
                 <div key={t.id} style={{ padding:"4px 0", borderBottom:"1px solid #F1F5F9" }}>
                   <div style={{ display:"flex", alignItems:"center", gap:6 }}>
-                    <span style={{ flex:1, fontSize:12, color:"#1E293B", lineHeight:1.3 }}>{t.nombre}</span>
+                    <span style={{ flex:1, fontSize:12, color:"#141A21", lineHeight:1.3 }}>{t.nombre}</span>
                     <div style={{ display:"flex", gap:3, flexShrink:0 }}>
                       {[
-                        { val:"finalizado", label:"✓",   colorOn:"#10B981", bgOn:"#D1FAE5" },
+                        { val:"finalizado", label:"✓",   colorOn:"#1B7A4B", bgOn:"#DCF2E5" },
                         { val:"noaplica",   label:"N/A", colorOn:"#94A3B8", bgOn:"#F1F5F9" },
-                        { val:"pendiente",  label:"⏳",  colorOn:"#F59E0B", bgOn:"#FEF3C7" },
+                        { val:"pendiente",  label:"⏳",  colorOn:"#C9822E", bgOn:"#FDF0DC" },
                       ].map(op => (
                         <button key={op.val}
                           style={{
@@ -756,7 +1047,7 @@ export default function ReporteTurno() {
                   </div>
                   {t.estado === "pendiente" && (
                     <input
-                      style={{ width:"100%", marginTop:4, padding:"5px 8px", border:"1px solid #FCD34D", borderRadius:5, fontSize:11, color:"#92400E", background:"#FFFBEB", boxSizing:"border-box", outline:"none" }}
+                      style={{ width:"100%", marginTop:4, padding:"5px 8px", border:"1px solid #E0A245", borderRadius:5, fontSize:11, color:"#8A5A1E", background:"#FFF8ED", boxSizing:"border-box", outline:"none" }}
                       placeholder="Detalle del pendiente..."
                       value={t.notaPendiente}
                       onChange={e => updateTarea(a.id,t.id,"notaPendiente",e.target.value)} />
@@ -798,7 +1089,7 @@ export default function ReporteTurno() {
                   </div>
                 )}
                 {actividades.length > 1 && (
-                  <button style={{ width:"100%", marginTop:6, padding:"8px", background:"none", border:"1px solid #FCA5A5", color:"#EF4444", fontSize:12, fontWeight:600, cursor:"pointer", borderRadius:6 }}
+                  <button style={{ width:"100%", marginTop:6, padding:"8px", background:"none", border:"1px solid #FCA5A5", color:"#B3261E", fontSize:12, fontWeight:600, cursor:"pointer", borderRadius:6 }}
                     onClick={()=>removeActividad(a.id)}>✕ Eliminar esta actividad</button>
                 )}
               </div>
@@ -819,7 +1110,7 @@ export default function ReporteTurno() {
 const S = {
   root: { minHeight: "100vh", background: "#F8FAFC", fontFamily: "'Segoe UI', system-ui, sans-serif", paddingBottom: 40 },
   container: { maxWidth: 680, margin: "0 auto", padding: "0 16px" },
-  topBar: { background: "#1E293B", margin: "0 -16px 24px", padding: "18px 20px" },
+  topBar: { background: "#141A21", margin: "0 -16px 24px", padding: "18px 20px" },
   topBarTitle: { color: "#F1F5F9", fontWeight: 700, fontSize: 18, letterSpacing: "-0.3px" },
   topBarSub: { color: "#94A3B8", fontSize: 13, marginTop: 1 },
   clearBtn: { background: "none", border: "1px solid #475569", color: "#94A3B8", borderRadius: 8, padding: "6px 12px", fontSize: 13, cursor: "pointer" },
@@ -829,26 +1120,26 @@ const S = {
   row2: { display: "flex", gap: 12 },
   fieldGroup: { flex: 1, marginBottom: 14 },
   label: { display: "block", fontSize: 13, fontWeight: 600, color: "#374151", marginBottom: 5 },
-  input: { width: "100%", padding: "9px 12px", border: "1.5px solid #E2E8F0", borderRadius: 8, fontSize: 14, color: "#1E293B", background: "#F8FAFC", boxSizing: "border-box", outline: "none" },
-  textarea: { width: "100%", padding: "9px 12px", border: "1.5px solid #E2E8F0", borderRadius: 8, fontSize: 14, color: "#1E293B", background: "#F8FAFC", boxSizing: "border-box", minHeight: 72, resize: "vertical", outline: "none", fontFamily: "inherit" },
-  select: { width: "100%", padding: "9px 12px", border: "1.5px solid #E2E8F0", borderRadius: 8, fontSize: 14, color: "#1E293B", background: "#F8FAFC", boxSizing: "border-box" },
-  actCardNum: { background: "#1E293B", color: "#fff", borderRadius: 6, width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, flexShrink: 0 },
-  removeBtn: { background: "none", border: "1px solid #FCA5A5", color: "#EF4444", fontSize: 13, fontWeight: 600, cursor: "pointer", padding: "4px 10px", borderRadius: 6 },
+  input: { width: "100%", padding: "9px 12px", border: "1.5px solid #E2E8F0", borderRadius: 8, fontSize: 14, color: "#141A21", background: "#F8FAFC", boxSizing: "border-box", outline: "none" },
+  textarea: { width: "100%", padding: "9px 12px", border: "1.5px solid #E2E8F0", borderRadius: 8, fontSize: 14, color: "#141A21", background: "#F8FAFC", boxSizing: "border-box", minHeight: 72, resize: "vertical", outline: "none", fontFamily: "inherit" },
+  select: { width: "100%", padding: "9px 12px", border: "1.5px solid #E2E8F0", borderRadius: 8, fontSize: 14, color: "#141A21", background: "#F8FAFC", boxSizing: "border-box" },
+  actCardNum: { background: "#141A21", color: "#fff", borderRadius: 6, width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, flexShrink: 0 },
+  removeBtn: { background: "none", border: "1px solid #FCA5A5", color: "#B3261E", fontSize: 13, fontWeight: 600, cursor: "pointer", padding: "4px 10px", borderRadius: 6 },
   tareaItem: { marginBottom: 6, padding: "8px 10px", background: "#FAFAFA", borderRadius: 8, border: "1px solid #F1F5F9" },
-  tareaHeader: { fontSize: 11, fontWeight: 800, letterSpacing: "0.06em", color: "#1E293B", background: "#E2E8F0", padding: "6px 10px", borderRadius: 6, marginBottom: 6, marginTop: 10, textTransform: "uppercase" },
+  tareaHeader: { fontSize: 11, fontWeight: 800, letterSpacing: "0.06em", color: "#141A21", background: "#E2E8F0", padding: "6px 10px", borderRadius: 6, marginBottom: 6, marginTop: 10, textTransform: "uppercase" },
   addBtn: { width: "100%", padding: "13px", border: "2px dashed #CBD5E1", borderRadius: 10, background: "none", color: "#475569", fontSize: 14, fontWeight: 600, cursor: "pointer", marginBottom: 12 },
-  btnPrimary: { width: "100%", padding: "14px", background: "#1E293B", color: "#fff", border: "none", borderRadius: 10, fontSize: 15, fontWeight: 700, cursor: "pointer", letterSpacing: "-0.2px" },
+  btnPrimary: { width: "100%", padding: "14px", background: "#141A21", color: "#fff", border: "none", borderRadius: 10, fontSize: 15, fontWeight: 700, cursor: "pointer", letterSpacing: "-0.2px" },
   shareBar: { display: "flex", gap: 8, margin: "16px 0 20px" },
-  shareBtn: { flex: 1, padding: "11px 12px", border: "1.5px solid #E2E8F0", borderRadius: 8, background: "#fff", color: "#1E293B", fontSize: 14, fontWeight: 600, cursor: "pointer" },
+  shareBtn: { flex: 1, padding: "11px 12px", border: "1.5px solid #E2E8F0", borderRadius: 8, background: "#fff", color: "#141A21", fontSize: 14, fontWeight: 600, cursor: "pointer" },
   previewCard: { background: "#fff", border: "1px solid #E2E8F0", borderRadius: 12, marginBottom: 20, overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,0.04)" },
-  previewCardTopBar: { background: "#1E293B", padding: "14px 18px", display: "flex", alignItems: "center", gap: 12 },
+  previewCardTopBar: { background: "#141A21", padding: "14px 18px", display: "flex", alignItems: "center", gap: 12 },
   previewCardBarTitle: { color: "#F1F5F9", fontWeight: 700, fontSize: 15 },
   previewCardBarSub: { color: "#94A3B8", fontSize: 12, marginTop: 2, textTransform: "capitalize" },
   previewCardMeta: { display: "flex", flexWrap: "wrap", gap: 6, padding: "12px 16px", borderBottom: "1px solid #F1F5F9", background: "#FAFAFA" },
   previewCardBody: { padding: "14px 16px" },
   metaChip: { borderRadius: 20, padding: "3px 10px", fontSize: 12, fontWeight: 600 },
   previewLabel: { fontSize: 11, fontWeight: 700, color: "#64748B", marginBottom: 6, letterSpacing: "0.04em" },
-  avancePct: { fontSize: 13, fontWeight: 700, color: "#1E293B", minWidth: 38, textAlign: "right" },
+  avancePct: { fontSize: 13, fontWeight: 700, color: "#141A21", minWidth: 38, textAlign: "right" },
   obsBox: { background: "#F8FAFC", border: "1px solid #E2E8F0", borderRadius: 8, padding: "8px 12px", fontSize: 13, color: "#475569" },
   fotoPreviewGrid: { display: "flex", flexWrap: "wrap", gap: 8, marginTop: 12 },
   fotoPreviewWrap: { width: 90, height: 90 },
@@ -857,5 +1148,5 @@ const S = {
   fotoGrid: { display: "flex", flexWrap: "wrap", gap: 8, marginTop: 10 },
   fotoThumbWrap: { position: "relative", width: 80, height: 80 },
   fotoThumb: { width: 80, height: 80, objectFit: "cover", borderRadius: 8, border: "1.5px solid #E2E8F0" },
-  fotoRemove: { position: "absolute", top: -6, right: -6, background: "#EF4444", color: "#fff", border: "none", borderRadius: "50%", width: 20, height: 20, fontSize: 11, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" },
+  fotoRemove: { position: "absolute", top: -6, right: -6, background: "#B3261E", color: "#fff", border: "none", borderRadius: "50%", width: 20, height: 20, fontSize: 11, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" },
 };
