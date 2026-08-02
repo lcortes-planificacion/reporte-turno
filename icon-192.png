@@ -1,0 +1,11 @@
+import { createClient } from "@supabase/supabase-js";
+
+const url = import.meta.env.VITE_SUPABASE_URL;
+const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+export const supabaseEnabled = Boolean(url && anonKey);
+
+// Si no hay variables de entorno configuradas, la app sigue funcionando
+// 100% en modo local (como hasta ahora); solo se deshabilita la entrega
+// de turno entre dispositivos.
+export const supabase = supabaseEnabled ? createClient(url, anonKey) : null;

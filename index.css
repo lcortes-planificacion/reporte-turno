@@ -1,0 +1,120 @@
+import { useEffect, useRef, useState } from "react";
+
+/**
+ * Captura de firma en canvas. Pensado para dejar constancia de quién
+ * entrega y quién recibe el turno (trazabilidad de la entrega).
+ *
+ * Props:
+ *  - value: dataURL (png) ya guardado, o null
+ *  - onChange(dataUrlOrNull): se llama al terminar un trazo y al limpiar
+ *  - label: texto pequeño bajo el recuadro
+ */
+export default function SignaturePad({ value, onChange, label }) {
+  const canvasRef = useRef(null);
+  const drawing = useRef(false);
+  const lastPoint = useRef(null);
+  const [hasStroke, setHasStroke] = useState(!!value);
+
+  const setupCanvas = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return null;
+    const ratio = window.devicePixelRatio || 1;
+    const rect = canvas.getBoundingClientRect();
+    if (rect.width === 0) return null;
+    canvas.width = rect.width * ratio;
+    canvas.height = rect.height * ratio;
+    const ctx = canvas.getContext("2d");
+    ctx.scale(ratio, ratio);
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.lineWidth = 2.4;
+    ctx.strokeStyle = "#14181D";
+    return ctx;
+  };
+
+  useEffect(() => {
+    const ctx = setupCanvas();
+    if (ctx && value) {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = canvasRef.current;
+        const rect = canvas.getBoundingClientRect();
+        ctx.drawImage(img, 0, 0, rect.width, rect.height);
+      };
+      img.src = value;
+    }
+    const onResize = () => setupCanvas();
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const point = (e) => {
+    const canvas = canvasRef.current;
+    const rect = canvas.getBoundingClientRect();
+    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+  };
+
+  const start = (e) => {
+    e.preventDefault();
+    canvasRef.current.setPointerCapture?.(e.pointerId);
+    drawing.current = true;
+    lastPoint.current = point(e);
+  };
+
+  const move = (e) => {
+    if (!drawing.current) return;
+    e.preventDefault();
+    const ctx = canvasRef.current.getContext("2d");
+    const p = point(e);
+    ctx.beginPath();
+    ctx.moveTo(lastPoint.current.x, lastPoint.current.y);
+    ctx.lineTo(p.x, p.y);
+    ctx.stroke();
+    lastPoint.current = p;
+    if (!hasStroke) setHasStroke(true);
+  };
+
+  const end = (e) => {
+    if (!drawing.current) return;
+    drawing.current = false;
+    const canvas = canvasRef.current;
+    onChange?.(canvas.toDataURL("image/png"));
+  };
+
+  const limpiar = () => {
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext("2d");
+    const rect = canvas.getBoundingClientRect();
+    ctx.clearRect(0, 0, rect.width, rect.height);
+    setHasStroke(false);
+    onChange?.(null);
+  };
+
+  return (
+    <div>
+      <canvas
+        ref={canvasRef}
+        className={"firma-canvas" + (hasStroke ? " firmada" : "")}
+        onPointerDown={start}
+        onPointerMove={move}
+        onPointerUp={end}
+        onPointerLeave={end}
+      />
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 4 }}>
+        <span style={{ fontSize: 11, color: hasStroke ? "#1E7A4C" : "#94A3B8", fontWeight: 600 }}>
+          {hasStroke ? "✓ Firmado" : (label || "Firmar aquí")}
+        </span>
+        {hasStroke && (
+          <button
+            type="button"
+            onClick={limpiar}
+            style={{ background: "none", border: "none", color: "#B3261E", fontSize: 11, fontWeight: 700, cursor: "pointer", padding: "2px 4px" }}
+          >
+            ✕ Borrar firma
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}

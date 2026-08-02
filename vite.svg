@@ -1,0 +1,97 @@
+:root {
+  /* ── Paleta: identidad "placa de equipo industrial" ───────────────────── */
+  --graphite: #14181D;      /* chrome de la app, plates */
+  --graphite-soft: #1E242B; /* superficies oscuras secundarias */
+  --steel: #3E6B8A;         /* línea Ensamble */
+  --steel-bg: #E9F1F5;
+  --rust: #A85C32;          /* línea Desarme */
+  --rust-bg: #F6ECE3;
+  --amber: #C9822E;         /* acento de marca / pendiente */
+  --amber-bg: #FFF3DF;
+  --amber-line: #E8A33D;
+  --ok: #1E7A4C;            /* finalizado */
+  --ok-bg: #DFF3E7;
+  --danger: #B3261E;
+  --danger-bg: #FBE7E5;
+  --ink: #14181D;
+  --ink-soft: #4B5560;
+  --line: #DDE2E6;
+  --surface: #FFFFFF;
+  --surface-sunk: #F6F7F8;
+  --bg: #EEF0F2;
+
+  --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, system-ui, sans-serif;
+  --mono: ui-monospace, 'SF Mono', 'Roboto Mono', Consolas, monospace;
+
+  color-scheme: light;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+
+  /* Safe areas: la app corre "standalone" (PWA) sobre notch/status bar */
+  --sat: env(safe-area-inset-top, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+  --sal: env(safe-area-inset-left, 0px);
+  --sar: env(safe-area-inset-right, 0px);
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--sans);
+  overscroll-behavior-y: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+#root {
+  min-height: 100svh;
+}
+
+button, input, select, textarea {
+  font-family: inherit;
+}
+
+button {
+  touch-action: manipulation;
+}
+
+:focus-visible {
+  outline: 2px solid var(--amber-line);
+  outline-offset: 2px;
+}
+
+/* Placa con remaches — el elemento de firma visual de la app,
+   evoca la placa de identificación atornillada a un reductor. */
+.plate {
+  position: relative;
+  background:
+    radial-gradient(circle 3px at 10px 10px, rgba(255,255,255,0.18) 98%, transparent 100%),
+    radial-gradient(circle 3px at calc(100% - 10px) 10px, rgba(255,255,255,0.18) 98%, transparent 100%),
+    radial-gradient(circle 3px at 10px calc(100% - 10px), rgba(255,255,255,0.18) 98%, transparent 100%),
+    radial-gradient(circle 3px at calc(100% - 10px) calc(100% - 10px), rgba(255,255,255,0.18) 98%, transparent 100%),
+    var(--graphite);
+}
+
+.mono {
+  font-family: var(--mono);
+  letter-spacing: 0.02em;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+.sync-dot-pending {
+  animation: pulse-dot 1.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sync-dot-pending { animation: none; }
+  * { transition: none !important; }
+}

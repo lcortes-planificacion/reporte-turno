@@ -1,0 +1,80 @@
+import { supabase, supabaseEnabled } from "./supabaseClient";
+
+const TABLE = "reporte_turno_entregas";
+const QUEUE_KEY = "reporte_turno_pending_sync";
+
+const readQueue = () => {
+  try {
+    return JSON.parse(localStorage.getItem(QUEUE_KEY) || "[]");
+  } catch {
+    return [];
+  }
+};
+
+const writeQueue = (queue) => {
+  try {
+    localStorage.setItem(QUEUE_KEY, JSON.stringify(queue));
+  } catch {
+    // localStorage lleno (fotos pesadas). No bloqueamos la app por esto;
+    // el registro simplemente no queda en la cola de reintento.
+  }
+};
+
+export const getPendingCount = () => readQueue().length;
+
+const insertRow = async (row) => {
+  if (!supabaseEnabled) throw new Error("Supabase no configurado");
+  const { error } = await supabase.from(TABLE).insert(row);
+  if (error) throw error;
+};
+
+/**
+ * Intenta enviar la entrega de turno a Supabase. Si no hay conexión o la
+ * llamada falla, la deja en cola local para reintentar automáticamente
+ * cuando vuelva la señal (típico en faenas con conectividad irregular).
+ * Nunca se pierde el registro: siempre queda guardado en localStorage
+ * (ver App.jsx) además de en esta cola.
+ */
+export async function pushEntrega(row) {
+  if (!supabaseEnabled) return { ok: false, reason: "sin-configurar" };
+  if (!navigator.onLine) {
+    writeQueue([...readQueue(), row]);
+    return { ok: false, queued: true };
+  }
+  try {
+    await insertRow(row);
+    return { ok: true };
+  } catch {
+    writeQueue([...readQueue(), row]);
+    return { ok: false, queued: true };
+  }
+}
+
+/** Reintenta enviar todo lo que quedó pendiente en la cola local. */
+export async function flushQueue(onProgress) {
+  if (!supabaseEnabled || !navigator.onLine) return;
+  let queue = readQueue();
+  if (!queue.length) return;
+  const remaining = [];
+  for (const row of queue) {
+    try {
+      await insertRow(row);
+    } catch {
+      remaining.push(row);
+    }
+  }
+  writeQueue(remaining);
+  onProgress?.(remaining.length);
+}
+
+/** Trae la última entrega registrada, para que el turno entrante vea qué dejó pendiente el turno anterior. */
+export async function fetchUltimaEntrega() {
+  if (!supabaseEnabled) return null;
+  const { data, error } = await supabase
+    .from(TABLE)
+    .select("*")
+    .order("created_at", { ascending: false })
+    .limit(1);
+  if (error || !data?.length) return null;
+  return data[0];
+}
